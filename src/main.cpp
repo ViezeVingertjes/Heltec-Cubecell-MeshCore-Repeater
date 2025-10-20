@@ -28,13 +28,11 @@ void setup() {
   dispatcher.addProcessor(&deduplicator);
   dispatcher.addProcessor(&packetLogger);
   dispatcher.addProcessor(&packetStats);
-  dispatcher.addProcessor(&traceHandler);
-  dispatcher.addProcessor(&packetForwarder);
-
-  LOG_INFO_FMT("Registered %d packet processors",
-               dispatcher.getProcessorCount());
 
   if (Config::Forwarding::ENABLED) {
+    dispatcher.addProcessor(&traceHandler);
+    dispatcher.addProcessor(&packetForwarder);
+
     uint16_t nodeId = MeshCore::NodeConfig::getInstance().getNodeId();
     uint8_t nodeHash = MeshCore::NodeConfig::getInstance().getNodeHash();
     LOG_INFO_FMT("Forwarding ENABLED - Node ID: 0x%04X, Hash: 0x%02X", nodeId,
@@ -46,6 +44,9 @@ void setup() {
   } else {
     LOG_INFO("Forwarding DISABLED");
   }
+
+  LOG_INFO_FMT("Registered %d packet processors",
+               dispatcher.getProcessorCount());
 
   LoRaReceiver &receiver = LoRaReceiver::getInstance();
   receiver.initialize();
@@ -61,5 +62,8 @@ void setup() {
 void loop() {
   Radio.IrqProcess();
   LoRaReceiver::getInstance().processQueue();
-  packetForwarder.loop();
+
+  if (Config::Forwarding::ENABLED) {
+    packetForwarder.loop();
+  }
 }
