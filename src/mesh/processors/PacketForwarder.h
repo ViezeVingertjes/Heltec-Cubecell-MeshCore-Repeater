@@ -2,25 +2,36 @@
 
 #include "../../core/Config.h"
 #include "../../core/Logger.h"
+#include "../../core/Result.h"
+#include "../../core/containers/PriorityQueue.h"
 #include "../../radio/LoRaTransmitter.h"
 #include "../PacketDispatcher.h"
 
 namespace MeshCore {
 
+/**
+ * Delayed packet for priority queue
+ */
 struct DelayedPacket {
-  uint8_t encodedPacket[256];
+  uint8_t encodedPacket[Config::Forwarding::MAX_ENCODED_PACKET_SIZE];
   uint16_t packetLength;
   uint32_t scheduledTime;
   bool valid;
+
+  DelayedPacket()
+      : packetLength(0), scheduledTime(0), valid(false) {
+    memset(encodedPacket, 0, sizeof(encodedPacket));
+  }
 };
 
+/**
+ * PacketForwarder handles mesh packet forwarding with adaptive delays.
+ * Better signal quality results in shorter delays, allowing nodes with
+ * better reception to forward first.
+ */
 class PacketForwarder : public IPacketProcessor {
 public:
-  PacketForwarder() : forwardedCount(0), droppedCount(0), delayedCount(0) {
-    for (size_t i = 0; i < DELAY_QUEUE_SIZE; ++i) {
-      delayQueue[i].valid = false;
-    }
-  }
+  PacketForwarder() : forwardedCount(0), droppedCount(0), delayedCount(0) {}
   ~PacketForwarder() override = default;
 
   ProcessResult processPacket(const PacketEvent &event,
@@ -35,24 +46,26 @@ public:
   uint32_t getDelayedCount() const { return delayedCount; }
 
 private:
-  static constexpr size_t DELAY_QUEUE_SIZE = 4;
+  static constexpr size_t DELAY_QUEUE_SIZE =
+      Config::Forwarding::DELAY_QUEUE_SIZE;
 
   uint32_t forwardedCount;
   uint32_t droppedCount;
   uint32_t delayedCount;
-  DelayedPacket delayQueue[DELAY_QUEUE_SIZE];
 
-  bool shouldForward(const DecodedPacket &packet, int16_t rssi,
-                     const ProcessingContext &ctx);
-  bool transmitPacket(const uint8_t *rawPacket, uint16_t length);
-  bool addNodeToPath(DecodedPacket &packet);
+  PriorityQueue<DelayedPacket, DELAY_QUEUE_SIZE, uint32_t> delayQueue;
+
+  Result<void> shouldForward(const DecodedPacket &packet, int16_t rssi,
+                             const ProcessingContext &ctx);
+  Result<void> transmitPacket(const uint8_t *rawPacket, uint16_t length);
+  Result<void> addNodeToPath(DecodedPacket &packet);
 
   float calculatePacketScore(int8_t snr) const;
   uint32_t calculateRxDelay(float score, uint32_t airtime) const;
   uint32_t calculateTxJitter(uint32_t airtime) const;
 
-  bool enqueueDelayed(const uint8_t *encodedPacket, uint16_t length,
-                      uint32_t delayMs);
+  Result<void> enqueueDelayed(const uint8_t *encodedPacket, uint16_t length,
+                              uint32_t delayMs);
   bool processDelayQueue();
 };
 

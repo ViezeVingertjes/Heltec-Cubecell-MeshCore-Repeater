@@ -1,5 +1,6 @@
 #include "LoRaReceiver.h"
 #include "../core/Logger.h"
+#include "../core/PacketValidator.h"
 #include "../mesh/PacketDispatcher.h"
 #include "LoRaTransmitter.h"
 
@@ -64,10 +65,36 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
   LOG_DEBUG_FMT("Packet received: %d bytes, RSSI: %d dBm, SNR: %d dB", size,
                 rssi, snr);
 
+  // Validate raw packet before decoding
+  auto validationResult = MeshCore::PacketValidator::validateRawPacket(payload, size);
+  if (validationResult.isError()) {
+    LOG_WARN_FMT("Invalid raw packet: %s", 
+                 MeshCore::errorCodeToString(validationResult.error));
+    Radio.Rx(0);
+    return;
+  }
+
+  // Validate RSSI is in reasonable range
+  auto rssiResult = MeshCore::PacketValidator::validateRSSI(rssi);
+  if (rssiResult.isError()) {
+    LOG_WARN_FMT("Invalid RSSI value: %d dBm", rssi);
+    // Continue anyway, just warn
+  }
+
   MeshCore::DecodedPacket packet;
   bool decoded = MeshCore::PacketDecoder::decode(payload, size, packet);
 
   if (decoded) {
+    // Validate decoded packet structure
+    auto packetValidation = MeshCore::PacketValidator::validate(
+        packet, MeshCore::ValidationLevel::BASIC);
+    if (packetValidation.isError()) {
+      LOG_WARN_FMT("Decoded packet validation failed: %s",
+                   MeshCore::errorCodeToString(packetValidation.error));
+      Radio.Rx(0);
+      return;
+    }
+
     uint32_t timestamp = millis();
     getInstance().packetQueue.enqueue(packet, rssi, snr, timestamp);
   } else {

@@ -1,19 +1,14 @@
 #include "Deduplicator.h"
+#include "../../core/PacketDecoder.h"
 #include <string.h>
 
 namespace MeshCore {
 
-Deduplicator::Deduplicator() : nextCacheIndex(0), duplicateCount(0) {
-  resetCache();
-}
+Deduplicator::Deduplicator() : duplicateCount(0) { resetCache(); }
 
 void Deduplicator::resetCache() {
-  for (size_t i = 0; i < CACHE_SIZE; ++i) {
-    cache[i].valid = false;
-    cache[i].hash = 0;
-    cache[i].timestamp = 0;
-  }
-  nextCacheIndex = 0;
+  cache.clear();
+  duplicateCount = 0;
 }
 
 uint32_t Deduplicator::computePacketHash(const DecodedPacket &packet) {
@@ -58,38 +53,47 @@ uint16_t Deduplicator::extractSourceNode(const DecodedPacket &packet) {
 }
 
 bool Deduplicator::isDuplicate(uint32_t hash, uint32_t timestamp) {
-  for (size_t i = 0; i < CACHE_SIZE; ++i) {
-    if (!cache[i].valid)
-      continue;
+  bool found = false;
 
-    if (timestamp - cache[i].timestamp > CACHE_TIMEOUT_MS) {
-      cache[i].valid = false;
-      continue;
+  cache.forEach([&](PacketHash &entry, size_t index) {
+    if (!entry.valid) {
+      return true; // Continue iteration
     }
 
-    if (cache[i].hash == hash) {
-      return true;
+    // Check if expired
+    if (timestamp - entry.timestamp > CACHE_TIMEOUT_MS) {
+      entry.valid = false;
+      return true; // Continue
     }
-  }
 
-  return false;
+    // Check for match
+    if (entry.hash == hash) {
+      found = true;
+      return false; // Stop iteration
+    }
+
+    return true; // Continue
+  });
+
+  return found;
 }
 
 void Deduplicator::addToCache(uint32_t hash, uint32_t timestamp) {
-  cache[nextCacheIndex].hash = hash;
-  cache[nextCacheIndex].timestamp = timestamp;
-  cache[nextCacheIndex].valid = true;
+  PacketHash newEntry;
+  newEntry.hash = hash;
+  newEntry.timestamp = timestamp;
+  newEntry.valid = true;
 
-  nextCacheIndex = (nextCacheIndex + 1) % CACHE_SIZE;
+  cache.push(newEntry);
 }
 
 void Deduplicator::cleanExpiredEntries(uint32_t currentTime) {
-  for (size_t i = 0; i < CACHE_SIZE; ++i) {
-    if (cache[i].valid &&
-        (currentTime - cache[i].timestamp > CACHE_TIMEOUT_MS)) {
-      cache[i].valid = false;
+  cache.forEach([&](PacketHash &entry, size_t index) {
+    if (entry.valid && (currentTime - entry.timestamp > CACHE_TIMEOUT_MS)) {
+      entry.valid = false;
     }
-  }
+    return true; // Continue iteration
+  });
 }
 
 ProcessResult Deduplicator::processPacket(const PacketEvent &event,
@@ -98,16 +102,24 @@ ProcessResult Deduplicator::processPacket(const PacketEvent &event,
 
   uint32_t hash = computePacketHash(event.packet);
 
+  LOG_INFO_FMT("Packet hash: 0x%08lX (%s/%s, payload=%d bytes)", hash,
+               PacketDecoder::routeTypeToString(event.packet.routeType),
+               PacketDecoder::payloadTypeToString(event.packet.payloadType),
+               event.packet.payloadLength);
+
   if (isDuplicate(hash, event.timestamp)) {
     ctx.isDuplicate = true;
     duplicateCount++;
-    LOG_DEBUG_FMT("Duplicate detected: hash=0x%08lX", hash);
+    LOG_INFO_FMT(">>> DUPLICATE DETECTED: hash=0x%08lX <<<", hash);
     return ProcessResult::DROP;
   }
 
   addToCache(hash, event.timestamp);
 
   ctx.sourceNode = extractSourceNode(event.packet);
+
+  // Store hash in event for other processors to use
+  const_cast<PacketEvent &>(event).hash = hash;
 
   LOG_DEBUG_FMT("New packet cached: hash=0x%08lX src=%u", hash, ctx.sourceNode);
 

@@ -1,7 +1,7 @@
 #include "PacketForwarder.h"
 #include "../../core/NodeConfig.h"
 #include "../../core/PacketDecoder.h"
-#include "Deduplicator.h"
+#include "../../core/PacketValidator.h"
 #include <Arduino.h>
 #include <math.h>
 #include <string.h>
@@ -14,22 +14,36 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
     return ProcessResult::CONTINUE;
   }
 
-  if (!shouldForward(event.packet, event.rssi, ctx)) {
+  // Check if packet should be forwarded
+  auto forwardCheck = shouldForward(event.packet, event.rssi, ctx);
+  if (forwardCheck.isError()) {
+    if (forwardCheck.error == ErrorCode::WEAK_SIGNAL ||
+        forwardCheck.error == ErrorCode::INVALID_PACKET) {
+      // These are normal, just don't forward
+      return ProcessResult::CONTINUE;
+    }
+    LOG_WARN_FMT("Forward check failed: %s",
+                 errorCodeToString(forwardCheck.error));
     return ProcessResult::CONTINUE;
   }
 
   ctx.shouldForward = true;
 
+  // Create copy for modification
   DecodedPacket forwardPacket;
   memcpy(&forwardPacket, &event.packet, sizeof(DecodedPacket));
 
-  if (!addNodeToPath(forwardPacket)) {
-    LOG_WARN("Cannot add to path, dropping packet");
+  // Add this node to path
+  auto pathResult = addNodeToPath(forwardPacket);
+  if (pathResult.isError()) {
+    LOG_WARN_FMT("Cannot add to path: %s",
+                 errorCodeToString(pathResult.error));
     droppedCount++;
     return ProcessResult::CONTINUE;
   }
 
-  uint8_t rawPacket[256];
+  // Encode packet
+  uint8_t rawPacket[Config::Forwarding::MAX_ENCODED_PACKET_SIZE];
   uint16_t length =
       PacketDecoder::encode(forwardPacket, rawPacket, sizeof(rawPacket));
   if (length == 0) {
@@ -38,28 +52,34 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
     return ProcessResult::CONTINUE;
   }
 
+  // Calculate delays
   uint32_t airtime = LoRaTransmitter::estimateAirtime(length);
   float score = calculatePacketScore(event.snr);
   uint32_t rxDelay = calculateRxDelay(score, airtime);
   uint32_t txJitter = calculateTxJitter(airtime);
   uint32_t totalDelay = rxDelay + txJitter;
 
+  // Forward immediately or queue
   if (totalDelay < Config::Forwarding::MIN_DELAY_THRESHOLD_MS) {
-    if (transmitPacket(rawPacket, length)) {
+    auto txResult = transmitPacket(rawPacket, length);
+    if (txResult.isOk()) {
       forwardedCount++;
-      uint32_t hash = Deduplicator::computePacketHash(event.packet);
-      LOG_INFO_FMT("Forwarded immediately hash=0x%08lX (total: %lu)", hash,
-                   forwardedCount);
+      LOG_INFO_FMT("Forwarded immediately hash=0x%08lX (total: %lu)",
+                   event.hash, forwardedCount);
     } else {
+      LOG_WARN_FMT("Immediate transmit failed: %s",
+                   errorCodeToString(txResult.error));
       droppedCount++;
     }
   } else {
-    if (enqueueDelayed(rawPacket, length, totalDelay)) {
+    auto enqueueResult = enqueueDelayed(rawPacket, length, totalDelay);
+    if (enqueueResult.isOk()) {
       uint32_t scorePercent = static_cast<uint32_t>(score * 100.0f);
       LOG_INFO_FMT("Queued for delayed forward: rxDelay=%lu ms, txJitter=%lu "
                    "ms, total=%lu ms (score=%lu%%)",
                    rxDelay, txJitter, totalDelay, scorePercent);
     } else {
+      LOG_WARN_FMT("Queue failed: %s", errorCodeToString(enqueueResult.error));
       droppedCount++;
     }
   }
@@ -73,49 +93,76 @@ void PacketForwarder::loop() {
   }
 }
 
-bool PacketForwarder::shouldForward(const DecodedPacket &packet, int16_t rssi,
-                                    const ProcessingContext &ctx) {
+Result<void> PacketForwarder::shouldForward(const DecodedPacket &packet,
+                                            int16_t rssi,
+                                            const ProcessingContext &ctx) {
+  // Don't forward duplicates
   if (ctx.isDuplicate) {
-    return false;
+    return Err(ErrorCode::DUPLICATE);
   }
 
+  // Only forward flood packets
   if (packet.routeType != RouteType::FLOOD &&
       packet.routeType != RouteType::TRANSPORT_FLOOD) {
     LOG_DEBUG("Not forwarding non-flood packet");
-    return false;
+    return Err(ErrorCode::INVALID_PACKET);
   }
 
+  // Check path length
   if (packet.pathLength >= Config::Forwarding::MAX_PATH_LENGTH) {
     LOG_DEBUG_FMT("Path too long (%d), not forwarding", packet.pathLength);
-    return false;
+    return Err(ErrorCode::PATH_TOO_LONG);
   }
 
+  // Check signal strength
   if (rssi < Config::Forwarding::MIN_RSSI_TO_FORWARD) {
     LOG_DEBUG_FMT("Signal too weak (%d dBm), not forwarding", rssi);
-    return false;
+    return Err(ErrorCode::WEAK_SIGNAL);
   }
 
-  return true;
+  // Check for routing loops
+  uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
+  if (PacketValidator::isNodeInPath(packet, nodeHash)) {
+    LOG_DEBUG("Node already in path, not forwarding (loop prevention)");
+    return Err(ErrorCode::INVALID_PACKET);
+  }
+
+  // Validate packet structure
+  auto validationResult = PacketValidator::validate(packet);
+  if (validationResult.isError()) {
+    LOG_WARN_FMT("Packet validation failed: %s",
+                 errorCodeToString(validationResult.error));
+    return validationResult;
+  }
+
+  return Ok();
 }
 
-bool PacketForwarder::transmitPacket(const uint8_t *rawPacket,
-                                     uint16_t length) {
+Result<void> PacketForwarder::transmitPacket(const uint8_t *rawPacket,
+                                             uint16_t length) {
+  if (rawPacket == nullptr || length == 0) {
+    return Err(ErrorCode::INVALID_PARAMETER);
+  }
+
   LoRaTransmitter &transmitter = LoRaTransmitter::getInstance();
 
   if (transmitter.isTransmitting()) {
     LOG_DEBUG("Transmitter busy, skipping forward");
-    return false;
+    return Err(ErrorCode::HARDWARE_ERROR);
   }
 
-  return transmitter.transmit(rawPacket, length);
+  bool success = transmitter.transmit(rawPacket, length);
+  return success ? Ok() : Err(ErrorCode::TRANSMIT_FAILED);
 }
 
-bool PacketForwarder::addNodeToPath(DecodedPacket &packet) {
-  uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
-
-  if (packet.pathLength + 1 > MAX_PATH_SIZE) {
-    return false;
+Result<void> PacketForwarder::addNodeToPath(DecodedPacket &packet) {
+  // Validate we can add to path
+  auto canAddResult = PacketValidator::canAddToPath(packet);
+  if (canAddResult.isError()) {
+    return canAddResult;
   }
+
+  uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
 
   LOG_INFO_FMT("Adding node hash 0x%02X to path (current path_len=%d)",
                nodeHash, packet.pathLength);
@@ -125,13 +172,20 @@ bool PacketForwarder::addNodeToPath(DecodedPacket &packet) {
 
   LOG_INFO_FMT("Path updated, new path_len=%d", packet.pathLength);
 
-  return true;
+  return Ok();
 }
 
 float PacketForwarder::calculatePacketScore(int8_t snr) const {
-  float snrFloat = static_cast<float>(snr) / 4.0f;
-  float normalized = (snrFloat + 20.0f) / 40.0f;
+  // Convert SNR from 0.25 dB units to dB
+  float snrFloat = static_cast<float>(snr) / Config::Forwarding::SNR_SCALE_FACTOR;
+  
+  // Normalize to 0.0 - 1.0 range
+  float normalized = (snrFloat - Config::Forwarding::SNR_MIN_DB) / 
+                     Config::Forwarding::SNR_RANGE_DB;
+  
+  // Clamp to valid range
   normalized = max(0.0f, min(1.0f, normalized));
+  
   return normalized;
 }
 
@@ -141,6 +195,8 @@ uint32_t PacketForwarder::calculateRxDelay(float score,
     return 0;
   }
 
+  // Use exponential backoff based on inverse of score
+  // Higher score = shorter delay
   float exponent = 0.85f - score;
   float multiplier = pow(Config::Forwarding::RX_DELAY_BASE, exponent) - 1.0f;
 
@@ -159,79 +215,68 @@ uint32_t PacketForwarder::calculateTxJitter(uint32_t airtime) const {
   return randomSlot * slotTime;
 }
 
-bool PacketForwarder::enqueueDelayed(const uint8_t *encodedPacket,
-                                     uint16_t length, uint32_t delayMs) {
-  if (length > 256) {
+Result<void> PacketForwarder::enqueueDelayed(const uint8_t *encodedPacket,
+                                             uint16_t length,
+                                             uint32_t delayMs) {
+  // Validate parameters
+  if (encodedPacket == nullptr) {
+    return Err(ErrorCode::INVALID_PARAMETER);
+  }
+
+  if (length > Config::Forwarding::MAX_ENCODED_PACKET_SIZE) {
     LOG_ERROR("Packet too large for delay queue");
-    return false;
+    return Err(ErrorCode::BUFFER_TOO_SMALL);
   }
 
-  size_t freeSlot = DELAY_QUEUE_SIZE;
-  for (size_t i = 0; i < DELAY_QUEUE_SIZE; ++i) {
-    if (!delayQueue[i].valid) {
-      freeSlot = i;
-      break;
-    }
-  }
-
-  if (freeSlot >= DELAY_QUEUE_SIZE) {
+  if (delayQueue.isFull()) {
     LOG_WARN("Delayed forward queue full, dropping packet");
-    return false;
+    return Err(ErrorCode::QUEUE_FULL);
   }
 
   uint32_t scheduledTime = millis() + delayMs;
 
-  size_t insertIdx = freeSlot;
-  for (size_t i = 0; i < DELAY_QUEUE_SIZE; ++i) {
-    if (delayQueue[i].valid && delayQueue[i].scheduledTime > scheduledTime) {
-      insertIdx = i;
-      break;
-    }
+  DelayedPacket delayed;
+  memcpy(delayed.encodedPacket, encodedPacket, length);
+  delayed.packetLength = length;
+  delayed.scheduledTime = scheduledTime;
+  delayed.valid = true;
+
+  bool inserted = delayQueue.insert(delayed, scheduledTime);
+  if (!inserted) {
+    return Err(ErrorCode::QUEUE_FULL);
   }
 
-  if (insertIdx != freeSlot) {
-    for (size_t i = freeSlot; i > insertIdx; --i) {
-      memcpy(&delayQueue[i], &delayQueue[i - 1], sizeof(DelayedPacket));
-    }
-  }
-
-  memcpy(delayQueue[insertIdx].encodedPacket, encodedPacket, length);
-  delayQueue[insertIdx].packetLength = length;
-  delayQueue[insertIdx].scheduledTime = scheduledTime;
-  delayQueue[insertIdx].valid = true;
   delayedCount++;
 
   LOG_DEBUG_FMT(
       "Queued packet for delayed forward in %lu ms (delayed count: %lu)",
       delayMs, delayedCount);
 
-  return true;
+  return Ok();
 }
 
 bool PacketForwarder::processDelayQueue() {
   uint32_t now = millis();
   bool processed = false;
 
-  for (size_t i = 0; i < DELAY_QUEUE_SIZE; ++i) {
-    if (!delayQueue[i].valid)
-      continue;
+  // Check if front item is ready
+  uint32_t frontTime;
+  if (!delayQueue.peekFrontKey(frontTime)) {
+    return false; // Queue empty
+  }
 
-    if (now >= delayQueue[i].scheduledTime) {
-      if (transmitPacket(delayQueue[i].encodedPacket,
-                         delayQueue[i].packetLength)) {
+  if (now >= frontTime) {
+    DelayedPacket delayed;
+    if (delayQueue.popFront(delayed)) {
+      auto txResult =
+          transmitPacket(delayed.encodedPacket, delayed.packetLength);
+      if (txResult.isOk()) {
         LOG_DEBUG("Transmitted delayed packet");
         processed = true;
       } else {
-        return processed;
+        LOG_WARN_FMT("Delayed transmit failed: %s",
+                     errorCodeToString(txResult.error));
       }
-
-      for (size_t j = i; j < DELAY_QUEUE_SIZE - 1; ++j) {
-        memcpy(&delayQueue[j], &delayQueue[j + 1], sizeof(DelayedPacket));
-      }
-      delayQueue[DELAY_QUEUE_SIZE - 1].valid = false;
-      i--;
-    } else {
-      break;
     }
   }
 

@@ -2,10 +2,15 @@
 
 #include "../../core/Config.h"
 #include "../../core/Logger.h"
+#include "../../core/containers/CircularBuffer.h"
 #include "../PacketDispatcher.h"
 
 namespace MeshCore {
 
+/**
+ * Deduplicator prevents forwarding the same packet multiple times.
+ * Uses a circular buffer cache with time-based expiration.
+ */
 class Deduplicator : public IPacketProcessor {
 public:
   Deduplicator();
@@ -26,14 +31,15 @@ private:
     uint32_t hash;
     uint32_t timestamp;
     bool valid;
+
+    PacketHash() : hash(0), timestamp(0), valid(false) {}
   };
 
   static constexpr size_t CACHE_SIZE = Config::Deduplication::CACHE_SIZE;
   static constexpr uint32_t CACHE_TIMEOUT_MS =
       Config::Deduplication::CACHE_TIMEOUT_MS;
 
-  PacketHash cache[CACHE_SIZE];
-  size_t nextCacheIndex;
+  CircularBuffer<PacketHash, CACHE_SIZE> cache;
   uint32_t duplicateCount;
 
   bool isDuplicate(uint32_t hash, uint32_t timestamp);

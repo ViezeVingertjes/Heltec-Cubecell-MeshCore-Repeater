@@ -1,5 +1,6 @@
 #include "PacketDecoder.h"
 #include "Logger.h"
+#include "PacketValidator.h"
 #include <string.h>
 
 namespace MeshCore {
@@ -60,6 +61,14 @@ bool PacketDecoder::decode(const uint8_t *raw, uint16_t length,
 
 uint16_t PacketDecoder::encode(const DecodedPacket &packet, uint8_t *raw,
                                uint16_t maxLength) {
+  // Validate packet before encoding
+  auto validation = PacketValidator::validate(packet, ValidationLevel::BASIC);
+  if (validation.isError()) {
+    LOG_ERROR_FMT("Cannot encode invalid packet: %s",
+                  errorCodeToString(validation.error));
+    return 0;
+  }
+
   uint16_t idx = 0;
 
   // Calculate total size needed
