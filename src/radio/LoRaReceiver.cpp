@@ -2,12 +2,9 @@
 #include "../core/Logger.h"
 #include "../core/PacketValidator.h"
 #include "../mesh/PacketDispatcher.h"
-#include "LoRaTransmitter.h"
 
-static RadioEvents_t radioEvents;
-
-static void onTxDone();
-static void onTxTimeout();
+// Radio events struct shared between receiver and transmitter
+RadioEvents_t radioEvents;
 
 LoRaReceiver &LoRaReceiver::getInstance() {
   static LoRaReceiver instance;
@@ -15,12 +12,10 @@ LoRaReceiver &LoRaReceiver::getInstance() {
 }
 
 void LoRaReceiver::initialize() {
-  LOG_DEBUG("Setting up radio event callbacks");
+  LOG_DEBUG("Setting up radio RX event callbacks");
   radioEvents.RxDone = onRxDone;
   radioEvents.RxTimeout = onRxTimeout;
   radioEvents.RxError = onRxError;
-  radioEvents.TxDone = onTxDone;
-  radioEvents.TxTimeout = onTxTimeout;
 
   LOG_DEBUG("Initializing radio hardware");
   Radio.Init(&radioEvents);
@@ -63,7 +58,7 @@ void LoRaReceiver::processQueue() {
 void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
                             int8_t snr) {
   LOG_DEBUG_FMT("Packet received: %d bytes, RSSI: %d dBm, SNR: %d dB", size,
-                rssi, snr);
+                rssi, snr / 4);  // Convert SNR to dB for display
 
   // Validate raw packet before decoding
   auto validationResult = MeshCore::PacketValidator::validateRawPacket(payload, size);
@@ -111,19 +106,5 @@ void LoRaReceiver::onRxTimeout() {
 
 void LoRaReceiver::onRxError() {
   LOG_WARN("RX error occurred, restarting reception");
-  Radio.Rx(0);
-}
-
-static void onTxDone() {
-  LoRaTransmitter &tx = LoRaTransmitter::getInstance();
-  tx.notifyTxComplete(true);
-  LOG_DEBUG("TX complete, returning to RX");
-  Radio.Rx(0);
-}
-
-static void onTxTimeout() {
-  LoRaTransmitter &tx = LoRaTransmitter::getInstance();
-  tx.notifyTxComplete(false);
-  LOG_WARN("TX timeout, returning to RX");
   Radio.Rx(0);
 }

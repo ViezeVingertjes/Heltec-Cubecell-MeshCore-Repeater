@@ -29,11 +29,10 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
 
   ctx.shouldForward = true;
 
-  // Create copy for modification
+  // Create copy and add our node to path
   DecodedPacket forwardPacket;
   memcpy(&forwardPacket, &event.packet, sizeof(DecodedPacket));
-
-  // Add this node to path
+  
   auto pathResult = addNodeToPath(forwardPacket);
   if (pathResult.isError()) {
     LOG_WARN_FMT("Cannot add to path: %s",
@@ -42,46 +41,28 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
     return ProcessResult::CONTINUE;
   }
 
-  // Encode packet
+  // Encode packet for transmission
   uint8_t rawPacket[Config::Forwarding::MAX_ENCODED_PACKET_SIZE];
-  uint16_t length =
-      PacketDecoder::encode(forwardPacket, rawPacket, sizeof(rawPacket));
-  if (length == 0) {
+  auto encodeResult = encodePacketForForwarding(forwardPacket, rawPacket, sizeof(rawPacket));
+  if (encodeResult.isError()) {
     LOG_ERROR("Failed to encode packet for forwarding");
     droppedCount++;
     return ProcessResult::CONTINUE;
   }
+  uint16_t length = encodeResult.value;
 
-  // Calculate delays
+  // Calculate delays based on signal quality
   uint32_t airtime = LoRaTransmitter::estimateAirtime(length);
   float score = calculatePacketScore(event.snr);
   uint32_t rxDelay = calculateRxDelay(score, airtime);
   uint32_t txJitter = calculateTxJitter(airtime);
   uint32_t totalDelay = rxDelay + txJitter;
 
-  // Forward immediately or queue
+  // Forward immediately or queue based on delay
   if (totalDelay < Config::Forwarding::MIN_DELAY_THRESHOLD_MS) {
-    auto txResult = transmitPacket(rawPacket, length);
-    if (txResult.isOk()) {
-      forwardedCount++;
-      LOG_INFO_FMT("Forwarded immediately hash=0x%08lX (total: %lu)",
-                   event.hash, forwardedCount);
-    } else {
-      LOG_WARN_FMT("Immediate transmit failed: %s",
-                   errorCodeToString(txResult.error));
-      droppedCount++;
-    }
+    handleImmediateForward(rawPacket, length, event.hash);
   } else {
-    auto enqueueResult = enqueueDelayed(rawPacket, length, totalDelay);
-    if (enqueueResult.isOk()) {
-      uint32_t scorePercent = static_cast<uint32_t>(score * 100.0f);
-      LOG_INFO_FMT("Queued for delayed forward: rxDelay=%lu ms, txJitter=%lu "
-                   "ms, total=%lu ms (score=%lu%%)",
-                   rxDelay, txJitter, totalDelay, scorePercent);
-    } else {
-      LOG_WARN_FMT("Queue failed: %s", errorCodeToString(enqueueResult.error));
-      droppedCount++;
-    }
+    handleDelayedForward(rawPacket, length, totalDelay, event.snr, airtime);
   }
 
   return ProcessResult::CONTINUE;
@@ -173,6 +154,47 @@ Result<void> PacketForwarder::addNodeToPath(DecodedPacket &packet) {
   LOG_INFO_FMT("Path updated, new path_len=%d", packet.pathLength);
 
   return Ok();
+}
+
+Result<uint16_t> PacketForwarder::encodePacketForForwarding(
+    const DecodedPacket &packet, uint8_t *buffer, uint16_t bufferSize) {
+  uint16_t length = PacketDecoder::encode(packet, buffer, bufferSize);
+  if (length == 0) {
+    return Err<uint16_t>(ErrorCode::ENCODE_ERROR);
+  }
+  return Ok<uint16_t>(length);
+}
+
+void PacketForwarder::handleImmediateForward(const uint8_t *rawPacket, 
+                                             uint16_t length, uint32_t hash) {
+  auto txResult = transmitPacket(rawPacket, length);
+  if (txResult.isOk()) {
+    forwardedCount++;
+    LOG_INFO_FMT("Forwarded immediately hash=0x%08lX (total: %lu)",
+                 hash, forwardedCount);
+  } else {
+    LOG_WARN_FMT("Immediate transmit failed: %s",
+                 errorCodeToString(txResult.error));
+    droppedCount++;
+  }
+}
+
+void PacketForwarder::handleDelayedForward(const uint8_t *rawPacket, 
+                                           uint16_t length, uint32_t totalDelay,
+                                           int8_t snr, uint32_t airtime) {
+  auto enqueueResult = enqueueDelayed(rawPacket, length, totalDelay);
+  if (enqueueResult.isOk()) {
+    float score = calculatePacketScore(snr);
+    uint32_t scorePercent = static_cast<uint32_t>(score * 100.0f);
+    uint32_t rxDelay = calculateRxDelay(score, airtime);
+    uint32_t txJitter = calculateTxJitter(airtime);
+    LOG_INFO_FMT("Queued for delayed forward: rxDelay=%lu ms, txJitter=%lu "
+                 "ms, total=%lu ms (score=%lu%%)",
+                 rxDelay, txJitter, totalDelay, scorePercent);
+  } else {
+    LOG_WARN_FMT("Queue failed: %s", errorCodeToString(enqueueResult.error));
+    droppedCount++;
+  }
 }
 
 float PacketForwarder::calculatePacketScore(int8_t snr) const {

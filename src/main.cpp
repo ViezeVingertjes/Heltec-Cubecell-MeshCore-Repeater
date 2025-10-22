@@ -54,6 +54,7 @@ void setup() {
 
   LoRaTransmitter &transmitter = LoRaTransmitter::getInstance();
   transmitter.initialize();
+  transmitter.registerTxCallbacks();
   LOG_INFO("LoRa transmitter initialized");
 
   LOG_INFO("Setup complete");

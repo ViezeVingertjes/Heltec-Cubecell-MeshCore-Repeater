@@ -18,7 +18,7 @@ ProcessResult TraceHandler::processPacket(const PacketEvent &event,
     return ProcessResult::DROP;
   }
 
-  if (event.packet.payloadLength < 9) {
+  if (event.packet.payloadLength < MeshCore::TRACE_MIN_PAYLOAD_SIZE) {
     LOG_WARN("TRACE packet too small, dropping");
     return ProcessResult::DROP;
   }
@@ -26,12 +26,12 @@ ProcessResult TraceHandler::processPacket(const PacketEvent &event,
   uint32_t traceTag;
   uint32_t authCode;
   uint8_t flags;
-  memcpy(&traceTag, &event.packet.payload[0], 4);
-  memcpy(&authCode, &event.packet.payload[4], 4);
-  flags = event.packet.payload[8];
+  memcpy(&traceTag, &event.packet.payload[0], MeshCore::TRACE_TAG_SIZE);
+  memcpy(&authCode, &event.packet.payload[MeshCore::TRACE_TAG_SIZE], MeshCore::TRACE_AUTH_SIZE);
+  flags = event.packet.payload[MeshCore::TRACE_TAG_SIZE + MeshCore::TRACE_AUTH_SIZE];
 
-  uint8_t pathHashesLen = event.packet.payloadLength - 9;
-  const uint8_t *pathHashes = &event.packet.payload[9];
+  uint8_t pathHashesLen = event.packet.payloadLength - MeshCore::TRACE_MIN_PAYLOAD_SIZE;
+  const uint8_t *pathHashes = &event.packet.payload[MeshCore::TRACE_MIN_PAYLOAD_SIZE];
 
   uint8_t ourHash = NodeConfig::getInstance().getNodeHash();
 
@@ -125,7 +125,10 @@ bool TraceHandler::appendSnrAndForward(DecodedPacket &packet, int8_t snr) {
     return false;
   }
 
-  delay(random(50, 200));
+  // Add small random delay to avoid collisions
+  static constexpr uint32_t MIN_TRACE_DELAY_MS = 50;
+  static constexpr uint32_t MAX_TRACE_DELAY_MS = 200;
+  delay(random(MIN_TRACE_DELAY_MS, MAX_TRACE_DELAY_MS));
 
   if (transmitter.transmit(rawPacket, length)) {
     LOG_INFO("TRACE packet forwarded");
@@ -138,7 +141,7 @@ bool TraceHandler::appendSnrAndForward(DecodedPacket &packet, int8_t snr) {
 
 void TraceHandler::handleTraceComplete(const DecodedPacket &packet) {
   uint32_t traceTag;
-  memcpy(&traceTag, &packet.payload[0], 4);
+  memcpy(&traceTag, &packet.payload[0], MeshCore::TRACE_TAG_SIZE);
 
   LOG_INFO_FMT("TRACE complete! tag=0x%08lX, total hops=%d", traceTag,
                packet.pathLength);

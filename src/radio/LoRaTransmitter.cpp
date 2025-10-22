@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <math.h>
 
+extern RadioEvents_t radioEvents;
+
 LoRaTransmitter &LoRaTransmitter::getInstance() {
   static LoRaTransmitter instance;
   return instance;
@@ -12,6 +14,26 @@ void LoRaTransmitter::initialize() {
   LOG_DEBUG("Initializing LoRa transmitter");
   nextAllowedTxTime = 0;
   LOG_INFO("LoRa transmitter ready");
+}
+
+void LoRaTransmitter::registerTxCallbacks() {
+  LOG_DEBUG("Registering TX event callbacks");
+  radioEvents.TxDone = onTxDone;
+  radioEvents.TxTimeout = onTxTimeout;
+}
+
+void LoRaTransmitter::onTxDone() {
+  LoRaTransmitter &tx = getInstance();
+  tx.notifyTxComplete(true);
+  LOG_DEBUG("TX complete, returning to RX");
+  Radio.Rx(0);
+}
+
+void LoRaTransmitter::onTxTimeout() {
+  LoRaTransmitter &tx = getInstance();
+  tx.notifyTxComplete(false);
+  LOG_WARN("TX timeout, returning to RX");
+  Radio.Rx(0);
 }
 
 bool LoRaTransmitter::transmit(const uint8_t *data, uint16_t length) {

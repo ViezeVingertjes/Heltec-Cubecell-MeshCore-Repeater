@@ -36,7 +36,7 @@ uint32_t Deduplicator::computePacketHash(const DecodedPacket &packet) {
   return hash;
 }
 
-uint16_t Deduplicator::extractSourceNode(const DecodedPacket &packet) {
+uint16_t Deduplicator::extractSourceNode(const DecodedPacket &packet) const {
   if (packet.hasTransportCodes) {
     LOG_DEBUG_FMT("Source from transport[0]: %u", packet.transportCodes[0]);
     return packet.transportCodes[0];
@@ -118,8 +118,8 @@ ProcessResult Deduplicator::processPacket(const PacketEvent &event,
 
   ctx.sourceNode = extractSourceNode(event.packet);
 
-  // Store hash in event for other processors to use
-  const_cast<PacketEvent &>(event).hash = hash;
+  // Store hash in event for other processors to use (hash is mutable)
+  event.hash = hash;
 
   LOG_DEBUG_FMT("New packet cached: hash=0x%08lX src=%u", hash, ctx.sourceNode);
 

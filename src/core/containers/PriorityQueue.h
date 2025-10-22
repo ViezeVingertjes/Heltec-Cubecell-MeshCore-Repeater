@@ -123,7 +123,7 @@ public:
   /**
    * Get maximum capacity
    */
-  constexpr size_t capacity() const { return SIZE; }
+  static constexpr size_t capacity() { return SIZE; }
 
   /**
    * Clear all items

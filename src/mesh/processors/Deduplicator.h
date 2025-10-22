@@ -42,10 +42,10 @@ private:
   CircularBuffer<PacketHash, CACHE_SIZE> cache;
   uint32_t duplicateCount;
 
-  bool isDuplicate(uint32_t hash, uint32_t timestamp);
+  bool isDuplicate(uint32_t hash, uint32_t timestamp);  // Not const - modifies cache
   void addToCache(uint32_t hash, uint32_t timestamp);
   void cleanExpiredEntries(uint32_t currentTime);
-  uint16_t extractSourceNode(const DecodedPacket &packet);
+  uint16_t extractSourceNode(const DecodedPacket &packet) const;
 };
 
 } // namespace MeshCore

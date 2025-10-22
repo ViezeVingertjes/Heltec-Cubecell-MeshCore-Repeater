@@ -19,11 +19,16 @@ public:
   uint32_t getTotalAirtimeMs() const { return totalAirtimeMs; }
 
   static uint32_t estimateAirtime(uint16_t packetLength);
+  
+  static void registerTxCallbacks();
 
 private:
   LoRaTransmitter()
       : transmitting(false), transmitCount(0), failureCount(0),
         totalAirtimeMs(0), txStartTime(0), nextAllowedTxTime(0) {}
+  
+  static void onTxDone();
+  static void onTxTimeout();
 
   bool transmitting;
   uint32_t transmitCount;

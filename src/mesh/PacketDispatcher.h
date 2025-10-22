@@ -10,7 +10,7 @@ struct PacketEvent {
   int16_t rssi;
   int8_t snr;
   uint32_t timestamp;
-  uint32_t hash; // Computed hash for deduplication (set by Deduplicator)
+  mutable uint32_t hash; // Computed hash for deduplication (mutable cache field)
 
   PacketEvent(const DecodedPacket &p, int16_t r, int8_t s, uint32_t t)
       : packet(p), rssi(r), snr(s), timestamp(t), hash(0) {}

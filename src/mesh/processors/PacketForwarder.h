@@ -59,6 +59,12 @@ private:
                              const ProcessingContext &ctx);
   Result<void> transmitPacket(const uint8_t *rawPacket, uint16_t length);
   Result<void> addNodeToPath(DecodedPacket &packet);
+  Result<uint16_t> encodePacketForForwarding(const DecodedPacket &packet, 
+                                              uint8_t *buffer, uint16_t bufferSize);
+  void handleImmediateForward(const uint8_t *rawPacket, uint16_t length, 
+                              uint32_t hash);
+  void handleDelayedForward(const uint8_t *rawPacket, uint16_t length,
+                            uint32_t totalDelay, int8_t snr, uint32_t airtime);
 
   float calculatePacketScore(int8_t snr) const;
   uint32_t calculateRxDelay(float score, uint32_t airtime) const;

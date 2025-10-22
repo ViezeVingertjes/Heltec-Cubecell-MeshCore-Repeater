@@ -1,4 +1,5 @@
 #include "PacketLogger.h"
+#include "../../core/PacketDecoder.h"
 
 namespace MeshCore {
 
@@ -26,10 +27,10 @@ ProcessResult PacketLogger::processPacket(const PacketEvent &event,
     }
 
     if (event.packet.hasLocation) {
-      int32_t latInt = (int32_t)(event.packet.latitude * 1000000);
-      int32_t lonInt = (int32_t)(event.packet.longitude * 1000000);
-      LOG_INFO_FMT("Location: %d.%06d, %d.%06d", latInt / 1000000,
-                   latInt % 1000000, lonInt / 1000000, lonInt % 1000000);
+      int32_t latWhole, latFrac, lonWhole, lonFrac;
+      PacketDecoder::formatLocation(event.packet.latitude, event.packet.longitude,
+                                   latWhole, latFrac, lonWhole, lonFrac);
+      LOG_INFO_FMT("Location: %d.%06d, %d.%06d", latWhole, latFrac, lonWhole, lonFrac);
     }
 
     if (event.packet.advertFeat1 != 0 || event.packet.advertFeat2 != 0) {

@@ -45,9 +45,30 @@ constexpr uint8_t ADV_FEAT1_MASK = 0x20;
 constexpr uint8_t ADV_FEAT2_MASK = 0x40;
 constexpr uint8_t ADV_NAME_MASK = 0x80;
 
+// Packet size constraints
 constexpr uint8_t MAX_PACKET_PAYLOAD = 184;
 constexpr uint8_t MAX_PATH_SIZE = 64;
 constexpr uint8_t MAX_ADVERT_DATA_SIZE = 32;
+constexpr uint8_t MIN_PACKET_SIZE = 2;
+constexpr uint8_t TRANSPORT_CODE_SIZE = 2;
+constexpr uint8_t TRANSPORT_CODES_TOTAL_SIZE = 4;  // 2 codes * 2 bytes each
+
+// Advert payload structure sizes (in bytes)
+constexpr uint8_t ADVERT_MIN_PAYLOAD_SIZE = 100;
+constexpr uint8_t ADVERT_ID_SIZE = 32;
+constexpr uint8_t ADVERT_TIMESTAMP_SIZE = 4;
+constexpr uint8_t ADVERT_KEY_SIZE = 64;
+constexpr uint8_t ADVERT_LOCATION_SIZE = 8;  // 4 bytes lat + 4 bytes lon
+constexpr uint8_t ADVERT_FEATURE_SIZE = 2;
+
+// Location conversion
+constexpr int32_t LOCATION_SCALE_FACTOR = 1000000;
+
+// Trace packet structure
+constexpr uint8_t TRACE_MIN_PAYLOAD_SIZE = 9;  // tag(4) + auth(4) + flags(1)
+constexpr uint8_t TRACE_TAG_SIZE = 4;
+constexpr uint8_t TRACE_AUTH_SIZE = 4;
+constexpr uint8_t TRACE_FLAGS_SIZE = 1;
 
 struct DecodedPacket {
   uint8_t header;
@@ -80,10 +101,24 @@ public:
   static const char *routeTypeToString(RouteType type);
   static const char *payloadTypeToString(PayloadType type);
   static const char *advertTypeToString(AdvertType type);
+  
+  // Helper to format location for display
+  static void formatLocation(double latitude, double longitude, 
+                            int32_t &latWhole, int32_t &latFrac,
+                            int32_t &lonWhole, int32_t &lonFrac);
 
 private:
   static bool decodeAdvertPayload(const uint8_t *payload, uint16_t length,
                                   DecodedPacket &packet);
+  static bool parseAdvertFlags(const uint8_t *payload, uint16_t &idx,
+                               uint16_t length, DecodedPacket &packet);
+  static bool parseAdvertLocation(const uint8_t *payload, uint16_t &idx,
+                                  uint16_t length, DecodedPacket &packet);
+  static bool parseAdvertFeatures(const uint8_t *payload, uint16_t &idx,
+                                  uint16_t length, bool hasFeat1, bool hasFeat2,
+                                  DecodedPacket &packet);
+  static bool parseAdvertName(const uint8_t *payload, uint16_t &idx,
+                              uint16_t length, DecodedPacket &packet);
 };
 
 } // namespace MeshCore
