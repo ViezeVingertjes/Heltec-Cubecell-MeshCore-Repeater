@@ -281,13 +281,17 @@ bool PacketForwarder::processDelayQueue() {
   uint32_t now = millis();
   bool processed = false;
 
-  // Check if front item is ready
-  uint32_t frontTime;
-  if (!delayQueue.peekFrontKey(frontTime)) {
-    return false; // Queue empty
-  }
+  // Process ALL ready packets in one iteration for lower latency
+  while (true) {
+    uint32_t frontTime;
+    if (!delayQueue.peekFrontKey(frontTime)) {
+      break; // Queue empty
+    }
 
-  if (now >= frontTime) {
+    if (now < frontTime) {
+      break; // Next packet not ready yet
+    }
+
     DelayedPacket delayed;
     if (delayQueue.popFront(delayed)) {
       auto txResult =
@@ -295,10 +299,15 @@ bool PacketForwarder::processDelayQueue() {
       if (txResult.isOk()) {
         LOG_DEBUG("Transmitted delayed packet");
         processed = true;
+        // Successfully transmitted, continue to next packet
       } else {
+        // Transmitter busy or failed - stop processing queue
         LOG_WARN_FMT("Delayed transmit failed: %s",
                      errorCodeToString(txResult.error));
+        break;
       }
+    } else {
+      break; // Failed to pop, shouldn't happen
     }
   }
 

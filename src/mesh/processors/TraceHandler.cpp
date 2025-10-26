@@ -125,11 +125,8 @@ bool TraceHandler::appendSnrAndForward(DecodedPacket &packet, int8_t snr) {
     return false;
   }
 
-  // Add small random delay to avoid collisions
-  static constexpr uint32_t MIN_TRACE_DELAY_MS = 50;
-  static constexpr uint32_t MAX_TRACE_DELAY_MS = 200;
-  delay(random(MIN_TRACE_DELAY_MS, MAX_TRACE_DELAY_MS));
-
+  // TRACE packets use DIRECT routing, so collision risk is lower than FLOOD
+  // No artificial delay needed - transmit immediately for lowest latency
   if (transmitter.transmit(rawPacket, length)) {
     LOG_INFO("TRACE packet forwarded");
     return true;
