@@ -14,7 +14,7 @@ public:
   ProcessResult processPacket(const PacketEvent &event,
                               ProcessingContext &ctx) override;
   const char *getName() const override { return "TraceHandler"; }
-  uint8_t getPriority() const override { return 45; }
+  uint8_t getPriority() const override { return 30; }
 
   uint32_t getTracesHandled() const { return tracesHandled; }
 

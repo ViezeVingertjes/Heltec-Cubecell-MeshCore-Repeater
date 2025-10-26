@@ -37,7 +37,7 @@ public:
   ProcessResult processPacket(const PacketEvent &event,
                               ProcessingContext &ctx) override;
   const char *getName() const override { return "PacketForwarder"; }
-  uint8_t getPriority() const override { return 50; }
+  uint8_t getPriority() const override { return 20; }
 
   void loop();
 

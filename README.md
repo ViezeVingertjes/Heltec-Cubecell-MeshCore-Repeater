@@ -55,13 +55,12 @@ pio device monitor
 
 ## How It Works
 
-Packets flow through a processing pipeline:
+Packets flow through a processing pipeline (ordered by priority):
 1. **LoRaReceiver** → receives packets
-2. **Deduplicator** → filters duplicates
-3. **PacketLogger** → logs details (debug mode)
-4. **PacketStats** → tracks metrics
-5. **TraceHandler** → manages traces
-6. **PacketForwarder** → forwards with calculated delays
+2. **Deduplicator** (priority 10) → filters duplicates
+3. **PacketForwarder** (priority 20) → forwards with calculated delays
+4. **TraceHandler** (priority 30) → manages traces
+5. **PacketLogger** (priority 40) → logs details (debug mode)
 
 Better signal quality = shorter delays, so nodes with better reception forward first.
 

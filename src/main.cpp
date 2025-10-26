@@ -4,7 +4,6 @@
 #include "mesh/processors/Deduplicator.h"
 #include "mesh/processors/PacketForwarder.h"
 #include "mesh/processors/PacketLogger.h"
-#include "mesh/processors/PacketStats.h"
 #include "mesh/processors/TraceHandler.h"
 #include "radio/LoRaReceiver.h"
 #include "radio/LoRaTransmitter.h"
@@ -12,7 +11,6 @@
 
 static MeshCore::Deduplicator deduplicator;
 static MeshCore::PacketLogger packetLogger;
-static MeshCore::PacketStats packetStats;
 static MeshCore::TraceHandler traceHandler;
 static MeshCore::PacketForwarder packetForwarder;
 
@@ -27,7 +25,6 @@ void setup() {
       MeshCore::PacketDispatcher::getInstance();
   dispatcher.addProcessor(&deduplicator);
   dispatcher.addProcessor(&packetLogger);
-  dispatcher.addProcessor(&packetStats);
 
   if (Config::Forwarding::ENABLED) {
     dispatcher.addProcessor(&traceHandler);
