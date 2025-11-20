@@ -70,12 +70,17 @@ public:
           return Err(ErrorCode::INVALID_PACKET);
         }
 
-        // Validate location if present
+        // Validate location if present (stored as microdegrees)
         if (packet.hasLocation) {
-          if (packet.latitude < -90.0 || packet.latitude > 90.0) {
+          constexpr int32_t LAT_MIN = -90L * LOCATION_SCALE_FACTOR;
+          constexpr int32_t LAT_MAX = 90L * LOCATION_SCALE_FACTOR;
+          constexpr int32_t LON_MIN = -180L * LOCATION_SCALE_FACTOR;
+          constexpr int32_t LON_MAX = 180L * LOCATION_SCALE_FACTOR;
+          
+          if (packet.latitude < LAT_MIN || packet.latitude > LAT_MAX) {
             return Err(ErrorCode::INVALID_PACKET);
           }
-          if (packet.longitude < -180.0 || packet.longitude > 180.0) {
+          if (packet.longitude < LON_MIN || packet.longitude > LON_MAX) {
             return Err(ErrorCode::INVALID_PACKET);
           }
         }

@@ -86,8 +86,8 @@ struct DecodedPacket {
   AdvertType advertType;
   char advertName[MAX_ADVERT_DATA_SIZE];
   bool hasLocation;
-  double latitude;
-  double longitude;
+  int32_t latitude;   // Stored as microdegrees (value * 1000000)
+  int32_t longitude;  // Stored as microdegrees (value * 1000000)
   uint16_t advertFeat1;
   uint16_t advertFeat2;
 };
@@ -102,8 +102,8 @@ public:
   static const char *payloadTypeToString(PayloadType type);
   static const char *advertTypeToString(AdvertType type);
   
-  // Helper to format location for display
-  static void formatLocation(double latitude, double longitude, 
+  // Helper to format location for display (from microdegrees)
+  static void formatLocation(int32_t latitude, int32_t longitude, 
                             int32_t &latWhole, int32_t &latFrac,
                             int32_t &lonWhole, int32_t &lonFrac);
 

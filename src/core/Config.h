@@ -18,7 +18,14 @@ constexpr uint32_t TX_TIMEOUT_MS = 3000;
 } // namespace LoRa
 
 namespace Logging {
-constexpr size_t BUFFER_SIZE = 256;
+constexpr size_t BUFFER_SIZE = 128;  // Reduced from 256 to save stack space
+}
+
+namespace NodeIdentity {
+// Set USE_MANUAL_ID to true to override hardware-generated ID
+constexpr bool USE_MANUAL_ID = true;
+constexpr uint16_t MANUAL_NODE_ID = 0xFF00;    // Custom test node ID
+constexpr uint8_t MANUAL_NODE_HASH = 0x00;     // Reserved value - minimal collision risk with crypto-generated IDs
 }
 
 namespace Dispatcher {

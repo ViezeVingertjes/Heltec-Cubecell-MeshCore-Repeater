@@ -6,7 +6,7 @@ SerialLogger::SerialLogger(uint32_t baudRate)
 
 void SerialLogger::begin() {
   Serial.begin(baudRate);
-  delay(2000);
+  delay(500);  // Reduced from 2000ms for faster startup
 }
 
 void SerialLogger::logMessage(LogLevel level, const char *message) {

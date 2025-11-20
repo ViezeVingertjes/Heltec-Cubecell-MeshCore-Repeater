@@ -1,4 +1,5 @@
 #include "NodeConfig.h"
+#include "Config.h"
 #include "CyLib.h"
 #include "Logger.h"
 
@@ -10,10 +11,18 @@ NodeConfig &NodeConfig::getInstance() {
 }
 
 void NodeConfig::initialize() {
-  nodeId = generateNodeIdFromChip();
-  nodeHash = generateNodeHashFromChip();
-  LOG_INFO_FMT("Node ID: 0x%04X, Hash: 0x%02X (from chip ID)", nodeId,
-               nodeHash);
+  if (Config::NodeIdentity::USE_MANUAL_ID) {
+    // Use manually configured ID
+    nodeId = Config::NodeIdentity::MANUAL_NODE_ID;
+    nodeHash = Config::NodeIdentity::MANUAL_NODE_HASH;
+    LOG_INFO_FMT("Node ID: 0x%04X, Hash: 0x%02X (MANUAL)", nodeId, nodeHash);
+  } else {
+    // Use hardware-generated ID from chip
+    nodeId = generateNodeIdFromChip();
+    nodeHash = generateNodeHashFromChip();
+    LOG_INFO_FMT("Node ID: 0x%04X, Hash: 0x%02X (from chip ID)", nodeId,
+                 nodeHash);
+  }
 }
 
 uint16_t NodeConfig::generateNodeIdFromChip() {
@@ -50,17 +59,5 @@ uint8_t NodeConfig::generateNodeHashFromChip() {
 
   return hash;
 }
-
-uint16_t NodeConfig::calculateChecksum(const StoredConfig &config) {
-  uint16_t sum = 0;
-  sum ^= (config.magic >> 16) & 0xFFFF;
-  sum ^= config.magic & 0xFFFF;
-  sum ^= config.nodeId;
-  return sum;
-}
-
-bool NodeConfig::loadFromEEPROM() { return false; }
-
-void NodeConfig::saveToEEPROM() {}
 
 } // namespace MeshCore

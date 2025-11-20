@@ -3,7 +3,6 @@
 #include "../../core/PacketDecoder.h"
 #include "../../core/PacketValidator.h"
 #include <Arduino.h>
-#include <math.h>
 #include <string.h>
 
 namespace MeshCore {
@@ -217,16 +216,32 @@ uint32_t PacketForwarder::calculateRxDelay(float score,
     return 0;
   }
 
-  // Use exponential backoff based on inverse of score
-  // Higher score = shorter delay
-  float exponent = 0.85f - score;
-  float multiplier = pow(Config::Forwarding::RX_DELAY_BASE, exponent) - 1.0f;
+  // Use lookup table to approximate pow(2.5, 0.85 - score) - 1.0
+  // Precomputed for RX_DELAY_BASE = 2.5, exponents from -0.15 to 0.85
+  // Table has 11 entries for score values 0.0, 0.1, 0.2, ... 1.0
+  static const uint16_t multiplierTable[] = {
+    1293,  // score=0.0, exp=0.85  -> 2.5^0.85 - 1 = 2.293
+    1105,  // score=0.1, exp=0.75  -> 2.5^0.75 - 1 = 2.105
+    936,   // score=0.2, exp=0.65  -> 2.5^0.65 - 1 = 1.936
+    783,   // score=0.3, exp=0.55  -> 2.5^0.55 - 1 = 1.783
+    645,   // score=0.4, exp=0.45  -> 2.5^0.45 - 1 = 1.645
+    521,   // score=0.5, exp=0.35  -> 2.5^0.35 - 1 = 1.521
+    410,   // score=0.6, exp=0.25  -> 2.5^0.25 - 1 = 1.410
+    310,   // score=0.7, exp=0.15  -> 2.5^0.15 - 1 = 1.310
+    220,   // score=0.8, exp=0.05  -> 2.5^0.05 - 1 = 1.220
+    139,   // score=0.9, exp=-0.05 -> 2.5^-0.05 - 1 = 1.139
+    65     // score=1.0, exp=-0.15 -> 2.5^-0.15 - 1 = 1.065
+  };
 
-  if (multiplier < 0.0f) {
-    multiplier = 0.0f;
-  }
+  // Convert score to table index (0-10)
+  uint8_t index = static_cast<uint8_t>(score * 10.0f);
+  if (index > 10) index = 10;
 
-  uint32_t rxDelay = static_cast<uint32_t>(multiplier * airtime);
+  // Get multiplier from table (scaled by 1000)
+  uint32_t multiplier = multiplierTable[index];
+
+  // Calculate delay: (multiplier / 1000) * airtime
+  uint32_t rxDelay = (multiplier * airtime) / 1000;
   return rxDelay;
 }
 

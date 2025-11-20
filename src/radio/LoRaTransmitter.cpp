@@ -1,7 +1,6 @@
 #include "LoRaTransmitter.h"
 #include "../core/Logger.h"
 #include <Arduino.h>
-#include <math.h>
 
 extern RadioEvents_t radioEvents;
 
@@ -87,41 +86,24 @@ void LoRaTransmitter::notifyTxComplete(bool success) {
 }
 
 uint32_t LoRaTransmitter::estimateAirtime(uint16_t packetLength) {
-  uint32_t bw = 125000;
-  switch (Config::LoRa::BANDWIDTH) {
-  case 0:
-    bw = 125000;
-    break;
-  case 1:
-    bw = 250000;
-    break;
-  case 2:
-    bw = 500000;
-    break;
-  case 3:
-    bw = 62500;
-    break;
-  default:
-    bw = 125000;
-    break;
-  }
-
-  float sf = Config::LoRa::SPREADING_FACTOR;
-  float cr = Config::LoRa::CODING_RATE;
-
-  float symbolDuration =
-      (1 << static_cast<int>(sf)) / static_cast<float>(bw) * 1000.0f;
-
-  float preambleSymbols = Config::LoRa::PREAMBLE_LENGTH + 4.25f;
-
-  float payloadSymbols =
-      8.0f + max(ceil((8.0f * packetLength - 4.0f * sf + 28.0f + 16.0f) /
-                      (4.0f * sf)) *
-                     (cr + 4.0f),
-                 0.0f);
-
-  float totalSymbols = preambleSymbols + payloadSymbols;
-  uint32_t airtime = static_cast<uint32_t>(totalSymbols * symbolDuration);
-
-  return airtime;
+  // Pre-computed constants for SF8, BW=62.5kHz, CR=4/4, Preamble=16
+  // Symbol duration = (2^SF / BW) * 1000 ms = (256 / 62500) * 1000 = 4.096 ms
+  // Preamble symbols = 16 + 4.25 = 20.25 symbols
+  
+  // For better accuracy with integer math, work in microseconds (scale by 1000)
+  // Symbol duration in microseconds: 4096 us
+  constexpr uint32_t SYMBOL_DURATION_US = 4096;
+  
+  // Preamble time in microseconds: 20.25 * 4096 = 82944 us
+  constexpr uint32_t PREAMBLE_TIME_US = 82944;
+  
+  // Payload calculation: 8 + ceil((8*PL - 32 + 28 + 16) / 32) * 8
+  // Simplified: 8 + ceil((8*PL + 12) / 32) * 8
+  uint32_t numerator = (8 * packetLength + 12);
+  uint32_t payloadSymbols = 8 + (((numerator + 31) / 32) * 8);  // ceil division
+  
+  uint32_t payloadTime = payloadSymbols * SYMBOL_DURATION_US;
+  uint32_t totalTime = (PREAMBLE_TIME_US + payloadTime) / 1000;  // Convert to ms
+  
+  return totalTime;
 }

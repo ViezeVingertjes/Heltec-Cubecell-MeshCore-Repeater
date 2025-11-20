@@ -180,19 +180,15 @@ bool PacketDecoder::parseAdvertLocation(const uint8_t *payload, uint16_t &idx,
   if (idx + ADVERT_LOCATION_SIZE > length)
     return false;
 
-  int32_t lat, lon;
-  memcpy(&lat, &payload[idx], sizeof(int32_t));
+  memcpy(&packet.latitude, &payload[idx], sizeof(int32_t));
   idx += sizeof(int32_t);
-  memcpy(&lon, &payload[idx], sizeof(int32_t));
+  memcpy(&packet.longitude, &payload[idx], sizeof(int32_t));
   idx += sizeof(int32_t);
-  
-  packet.latitude = static_cast<double>(lat) / LOCATION_SCALE_FACTOR;
-  packet.longitude = static_cast<double>(lon) / LOCATION_SCALE_FACTOR;
   
   int32_t latWhole, latFrac, lonWhole, lonFrac;
   formatLocation(packet.latitude, packet.longitude, latWhole, latFrac, lonWhole, lonFrac);
   LOG_INFO_FMT("Parsed location: %d.%06d, %d.%06d (raw: %d, %d)",
-               latWhole, latFrac, lonWhole, lonFrac, lat, lon);
+               latWhole, latFrac, lonWhole, lonFrac, packet.latitude, packet.longitude);
   return true;
 }
 
@@ -295,16 +291,17 @@ const char *PacketDecoder::advertTypeToString(AdvertType type) {
   }
 }
 
-void PacketDecoder::formatLocation(double latitude, double longitude,
+void PacketDecoder::formatLocation(int32_t latitude, int32_t longitude,
                                    int32_t &latWhole, int32_t &latFrac,
                                    int32_t &lonWhole, int32_t &lonFrac) {
-  int32_t latInt = static_cast<int32_t>(latitude * LOCATION_SCALE_FACTOR);
-  int32_t lonInt = static_cast<int32_t>(longitude * LOCATION_SCALE_FACTOR);
+  // Input is already in microdegrees (scaled by LOCATION_SCALE_FACTOR)
+  latWhole = latitude / LOCATION_SCALE_FACTOR;
+  latFrac = latitude % LOCATION_SCALE_FACTOR;
+  if (latFrac < 0) latFrac = -latFrac;  // Handle negative values
   
-  latWhole = latInt / LOCATION_SCALE_FACTOR;
-  latFrac = latInt % LOCATION_SCALE_FACTOR;
-  lonWhole = lonInt / LOCATION_SCALE_FACTOR;
-  lonFrac = lonInt % LOCATION_SCALE_FACTOR;
+  lonWhole = longitude / LOCATION_SCALE_FACTOR;
+  lonFrac = longitude % LOCATION_SCALE_FACTOR;
+  if (lonFrac < 0) lonFrac = -lonFrac;  // Handle negative values
 }
 
 } // namespace MeshCore
