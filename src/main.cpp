@@ -1,4 +1,5 @@
 #include "core/Config.h"
+#include "core/LEDIndicator.h"
 #include "core/Logger.h"
 #include "core/NodeConfig.h"
 #include "mesh/processors/Deduplicator.h"
@@ -18,6 +19,9 @@ void setup() {
   logger.begin();
 
   LOG_INFO("=== CubeCell MeshCore Starting ===");
+
+  LEDIndicator::getInstance().initialize();
+  LOG_INFO("LED indicator initialized");
 
   MeshCore::NodeConfig::getInstance().initialize();
 
@@ -60,6 +64,7 @@ void setup() {
 void loop() {
   Radio.IrqProcess();
   LoRaReceiver::getInstance().processQueue();
+  LEDIndicator::getInstance().loop();
 
   if (Config::Forwarding::ENABLED) {
     packetForwarder.loop();

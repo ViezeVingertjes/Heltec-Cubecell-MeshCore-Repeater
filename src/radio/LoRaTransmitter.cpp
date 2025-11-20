@@ -1,4 +1,5 @@
 #include "LoRaTransmitter.h"
+#include "../core/LEDIndicator.h"
 #include "../core/Logger.h"
 #include <Arduino.h>
 
@@ -59,6 +60,9 @@ bool LoRaTransmitter::transmit(const uint8_t *data, uint16_t length) {
   txStartTime = millis();
   transmitCount++;
   Radio.Send(const_cast<uint8_t *>(data), length);
+  
+  // Flash blue LED to indicate packet transmitted
+  LEDIndicator::getInstance().flashTX();
 
   return true;
 }
