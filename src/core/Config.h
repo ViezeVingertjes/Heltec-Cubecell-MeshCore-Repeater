@@ -4,6 +4,17 @@
 
 namespace Config {
 
+namespace Power {
+constexpr bool LIGHT_SLEEP_ENABLED = true;
+constexpr bool DYNAMIC_VEXT_CONTROL = true;
+} // namespace Power
+
+namespace LED {
+constexpr bool ENABLED = false;
+constexpr uint8_t BRIGHTNESS = 25;
+constexpr uint32_t FLASH_DURATION_MS = 50;
+} // namespace LED
+
 namespace LoRa {
 constexpr uint32_t FREQUENCY = 869618000;
 constexpr uint8_t BANDWIDTH = 3;

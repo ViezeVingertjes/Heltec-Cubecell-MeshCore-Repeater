@@ -3,25 +3,28 @@
 #include <Arduino.h>
 
 /**
- * LED indicator for RX/TX activity using the onboard RGB LED
- * Simple, non-blocking flashes to avoid interfering with radio operations
+ * LED indicator for RX/TX activity using the onboard RGB LED.
+ * Vext power rail is dynamically controlled to save power.
  */
 class LEDIndicator {
 public:
   static LEDIndicator &getInstance();
 
   void initialize();
-  void flashRX();     // Green flash for packet received
-  void flashTX();     // Blue flash for packet transmitted
-  void loop();        // Call in main loop to handle LED timing
+  void flashRX();
+  void flashTX();
+  void loop();
 
 private:
-  LEDIndicator() : ledOn(false), ledOffTime(0) {}
+  LEDIndicator() : ledOn(false), vextOn(false), ledOffTime(0) {}
 
   bool ledOn;
+  bool vextOn;
   uint32_t ledOffTime;
 
   void turnOff();
+  void enableVext();
+  void disableVext();
 
   LEDIndicator(const LEDIndicator &) = delete;
   LEDIndicator &operator=(const LEDIndicator &) = delete;

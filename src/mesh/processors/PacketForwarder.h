@@ -44,6 +44,7 @@ public:
   uint32_t getForwardedCount() const { return forwardedCount; }
   uint32_t getDroppedCount() const { return droppedCount; }
   uint32_t getDelayedCount() const { return delayedCount; }
+  bool hasPendingPackets() const { return !delayQueue.isEmpty(); }
 
 private:
   static constexpr size_t DELAY_QUEUE_SIZE =

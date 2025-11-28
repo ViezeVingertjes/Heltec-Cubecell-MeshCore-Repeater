@@ -1,4 +1,5 @@
 #include "LEDIndicator.h"
+#include "Config.h"
 #include "CubeCell_NeoPixel.h"
 
 // Single RGB LED on the board
@@ -10,34 +11,56 @@ LEDIndicator &LEDIndicator::getInstance() {
 }
 
 void LEDIndicator::initialize() {
-  // Enable Vext power rail (required for LED on some boards)
   pinMode(Vext, OUTPUT);
-  digitalWrite(Vext, LOW);
+  digitalWrite(Vext, HIGH);
   
-  // Initialize the NeoPixel
   pixels.begin();
-  pixels.setBrightness(50);  // Moderate brightness to save power
+  pixels.setBrightness(Config::LED::BRIGHTNESS);
   pixels.clear();
   pixels.show();
   
   ledOn = false;
+  vextOn = false;
   ledOffTime = 0;
 }
 
+void LEDIndicator::enableVext() {
+  if (!vextOn) {
+    digitalWrite(Vext, LOW);
+    vextOn = true;
+    delayMicroseconds(100);
+  }
+}
+
+void LEDIndicator::disableVext() {
+  if (vextOn) {
+    digitalWrite(Vext, HIGH);
+    vextOn = false;
+  }
+}
+
 void LEDIndicator::flashRX() {
-  // Green flash for packet received
-  pixels.setPixelColor(0, pixels.Color(0, 30, 0));  // Green
+  if (!Config::LED::ENABLED) {
+    return;
+  }
+  
+  enableVext();
+  pixels.setPixelColor(0, pixels.Color(0, Config::LED::BRIGHTNESS, 0));
   pixels.show();
   ledOn = true;
-  ledOffTime = millis() + 50;  // 50ms flash
+  ledOffTime = millis() + Config::LED::FLASH_DURATION_MS;
 }
 
 void LEDIndicator::flashTX() {
-  // Blue flash for packet transmitted
-  pixels.setPixelColor(0, pixels.Color(0, 0, 30));  // Blue
+  if (!Config::LED::ENABLED) {
+    return;
+  }
+  
+  enableVext();
+  pixels.setPixelColor(0, pixels.Color(0, 0, Config::LED::BRIGHTNESS));
   pixels.show();
   ledOn = true;
-  ledOffTime = millis() + 50;  // 50ms flash
+  ledOffTime = millis() + Config::LED::FLASH_DURATION_MS;
 }
 
 void LEDIndicator::loop() {
@@ -50,5 +73,6 @@ void LEDIndicator::turnOff() {
   pixels.clear();
   pixels.show();
   ledOn = false;
+  disableVext();
 }
 

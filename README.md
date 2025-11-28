@@ -64,6 +64,18 @@ Packets flow through a processing pipeline (ordered by priority):
 
 Better signal quality = shorter delays, so nodes with better reception forward first.
 
+## Power Optimization 🔋
+
+The firmware includes power-saving features while maintaining full message reception:
+- **Light sleep mode**: MCU sleeps between operations, wakes on radio interrupt
+- **Dynamic Vext control**: LED power only enabled during flashes
+- **Conditional serial**: Disabled in production builds
+- **Configurable LED**: Adjust brightness or disable completely
+
+Radio remains in continuous RX mode to ensure no messages are missed.
+
+📖 **See [docs/POWER_OPTIMIZATION.md](docs/POWER_OPTIMIZATION.md) for configuration details**
+
 ## Performance Optimizations
 
 The repeater is optimized for **low latency** and **fast execution**:

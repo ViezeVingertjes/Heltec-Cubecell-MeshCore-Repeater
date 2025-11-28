@@ -6,6 +6,7 @@
 #include "mesh/processors/PacketForwarder.h"
 #include "mesh/processors/PacketLogger.h"
 #include "mesh/processors/TraceHandler.h"
+#include "power/PowerManager.h"
 #include "radio/LoRaReceiver.h"
 #include "radio/LoRaTransmitter.h"
 #include <Arduino.h>
@@ -17,9 +18,14 @@ static MeshCore::PacketForwarder packetForwarder;
 
 void setup() {
   logger.begin();
+  
+#ifdef ENABLE_LOGGING
+  logger.setLevel(LogLevel::DEBUG);
+#endif
 
   LOG_INFO("=== CubeCell MeshCore Starting ===");
 
+  PowerManager::getInstance().initialize();
   LEDIndicator::getInstance().initialize();
   LOG_INFO("LED indicator initialized");
 
@@ -68,5 +74,13 @@ void loop() {
 
   if (Config::Forwarding::ENABLED) {
     packetForwarder.loop();
+  }
+
+  if (Config::Power::LIGHT_SLEEP_ENABLED) {
+    bool hasPendingWork = (Config::Forwarding::ENABLED && 
+                           packetForwarder.hasPendingPackets());
+    if (!hasPendingWork) {
+      PowerManager::getInstance().sleep();
+    }
   }
 }
