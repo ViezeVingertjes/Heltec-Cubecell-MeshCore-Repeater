@@ -60,7 +60,7 @@ constexpr int16_t MIN_RSSI_TO_FORWARD = -120;
 // Delay calculation parameters - tune these for latency vs collision tradeoff
 constexpr float RX_DELAY_BASE = 2.5f;           // Base for exponential backoff
 constexpr float TX_DELAY_FACTOR = 2.0f;         // Jitter slot size multiplier
-constexpr float AIRTIME_BUDGET_FACTOR = 2.0f;   // Duty cycle limiting factor
+constexpr float AIRTIME_BUDGET_FACTOR = 0.0f;   // Duty cycle limiting (0 = disabled)
 constexpr uint32_t MIN_DELAY_THRESHOLD_MS = 20; // Reduced from 50ms for lower latency
 constexpr uint8_t TX_DELAY_JITTER_SLOTS = 6;    // Random jitter slots (0-5)
 

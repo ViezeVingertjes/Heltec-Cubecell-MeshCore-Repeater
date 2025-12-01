@@ -307,6 +307,15 @@ bool PacketForwarder::processDelayQueue() {
       break; // Next packet not ready yet
     }
 
+    // Check if transmitter is available BEFORE popping from queue
+    // This matches PingResponder behavior - don't lose packet if busy
+    LoRaTransmitter &transmitter = LoRaTransmitter::getInstance();
+    if (transmitter.isTransmitting()) {
+      // Transmitter busy, leave packet in queue and retry next loop
+      break;
+    }
+
+    // Now pop the packet - we know transmitter is available
     DelayedPacket delayed;
     if (delayQueue.popFront(delayed)) {
       auto txResult =
@@ -316,9 +325,19 @@ bool PacketForwarder::processDelayQueue() {
         processed = true;
         // Successfully transmitted, continue to next packet
       } else {
-        // Transmitter busy or failed - stop processing queue
-        LOG_WARN_FMT("Delayed transmit failed: %s",
-                     errorCodeToString(txResult.error));
+        // Transmit failed - re-insert with retry delay
+        // This matches PingResponder behavior - retry until success
+        uint32_t airtime = LoRaTransmitter::estimateAirtime(delayed.packetLength);
+        uint32_t retryDelay = static_cast<uint32_t>(airtime * Config::Forwarding::TX_DELAY_FACTOR);
+        uint32_t retryTime = millis() + retryDelay;
+        
+        if (!delayQueue.insert(delayed, retryTime)) {
+          // Queue full, packet dropped
+          LOG_WARN_FMT("Failed to re-insert packet: %s",
+                       errorCodeToString(txResult.error));
+          droppedCount++;
+        }
+        // Stop processing queue after retry to avoid busy-looping
         break;
       }
     } else {
