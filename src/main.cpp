@@ -1,20 +1,26 @@
 #include "core/Config.h"
+#include "core/CryptoIdentity.h"
 #include "core/LEDIndicator.h"
 #include "core/Logger.h"
 #include "core/NodeConfig.h"
 #include "mesh/processors/Deduplicator.h"
 #include "mesh/processors/PacketForwarder.h"
+#include "mesh/processors/PingResponder.h"
 #include "mesh/processors/PacketLogger.h"
 #include "mesh/processors/TraceHandler.h"
+#include "power/BatteryMonitor.h"
 #include "power/PowerManager.h"
 #include "radio/LoRaReceiver.h"
 #include "radio/LoRaTransmitter.h"
+#include "mesh/PublicChannelAnnouncer.h"
 #include <Arduino.h>
 
 static MeshCore::Deduplicator deduplicator;
 static MeshCore::PacketLogger packetLogger;
 static MeshCore::TraceHandler traceHandler;
 static MeshCore::PacketForwarder packetForwarder;
+static PingResponder pingResponder;
+static BatteryMonitor batteryMonitor;
 
 void setup() {
   logger.begin();
@@ -25,7 +31,11 @@ void setup() {
 
   LOG_INFO("=== CubeCell MeshCore Starting ===");
 
+  CryptoIdentity::getInstance().initialize();
+  PublicChannelAnnouncer::getInstance().initialize();
+
   PowerManager::getInstance().initialize();
+  batteryMonitor.initialize();
   LEDIndicator::getInstance().initialize();
   LOG_INFO("LED indicator initialized");
 
@@ -35,6 +45,7 @@ void setup() {
       MeshCore::PacketDispatcher::getInstance();
   dispatcher.addProcessor(&deduplicator);
   dispatcher.addProcessor(&packetLogger);
+  dispatcher.addProcessor(&pingResponder);
 
   if (Config::Forwarding::ENABLED) {
     dispatcher.addProcessor(&traceHandler);
@@ -76,9 +87,13 @@ void loop() {
     packetForwarder.loop();
   }
 
+  batteryMonitor.loop();
+  pingResponder.loop();
+
   if (Config::Power::LIGHT_SLEEP_ENABLED) {
     bool hasPendingWork = (Config::Forwarding::ENABLED && 
-                           packetForwarder.hasPendingPackets());
+                           packetForwarder.hasPendingPackets()) ||
+                          pingResponder.hasPendingResponse();
     if (!hasPendingWork) {
       PowerManager::getInstance().sleep();
     }
