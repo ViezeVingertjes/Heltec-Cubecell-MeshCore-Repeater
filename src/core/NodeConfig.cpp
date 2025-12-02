@@ -11,18 +11,11 @@ NodeConfig &NodeConfig::getInstance() {
 }
 
 void NodeConfig::initialize() {
-  if (Config::NodeIdentity::USE_MANUAL_ID) {
-    // Use manually configured ID
-    nodeId = Config::NodeIdentity::MANUAL_NODE_ID;
-    nodeHash = Config::NodeIdentity::MANUAL_NODE_HASH;
-    LOG_INFO_FMT("Node ID: 0x%04X, Hash: 0x%02X (MANUAL)", nodeId, nodeHash);
-  } else {
-    // Use hardware-generated ID from chip
-    nodeId = generateNodeIdFromChip();
-    nodeHash = generateNodeHashFromChip();
-    LOG_INFO_FMT("Node ID: 0x%04X, Hash: 0x%02X (from chip ID)", nodeId,
-                 nodeHash);
-  }
+  // Use hardware-generated ID from chip
+  nodeId = generateNodeIdFromChip();
+  nodeHash = generateNodeHashFromChip();
+  LOG_INFO_FMT("Node ID: 0x%04X, Hash: 0x%02X (from chip ID)", nodeId,
+               nodeHash);
 }
 
 uint16_t NodeConfig::generateNodeIdFromChip() {

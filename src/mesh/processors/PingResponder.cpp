@@ -46,17 +46,16 @@ PingResponder::processPacket(const MeshCore::PacketEvent &event,
     return MeshCore::ProcessResult::CONTINUE;
   }
 
-  // Rate limiting: only respond once per 15 minutes to prevent spam abuse
+  // Rate limiting: only respond once per minute to prevent spam abuse
   uint32_t now = millis();
   if (lastResponseTime != 0 && (now - lastResponseTime) < RESPONSE_RATE_LIMIT_MS) {
     return MeshCore::ProcessResult::CONTINUE;
   }
 
-  // Deduplicate based on payload hash with 60-second timeout
-  // This prevents responding to repeated/forwarded copies of the same !ping
-  // but allows responding to new !ping commands after the timeout
+  // Deduplicate based on payload hash to prevent responding to
+  // repeated/forwarded copies of the same !ping
   uint32_t payloadHash = hashPayload(event.packet);
-  if (payloadHash == lastPayloadHash && (now - lastPayloadTime) < 60000) {
+  if (payloadHash == lastPayloadHash && (now - lastPayloadTime) < DEDUP_TIMEOUT_MS) {
     return MeshCore::ProcessResult::CONTINUE;
   }
   lastPayloadHash = payloadHash;

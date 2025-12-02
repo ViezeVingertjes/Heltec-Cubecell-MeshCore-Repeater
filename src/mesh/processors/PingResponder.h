@@ -19,7 +19,9 @@ public:
   bool hasPendingResponse() const { return pendingResponse; }
 
 private:
-  static constexpr uint32_t RESPONSE_RATE_LIMIT_MS = 15 * 60 * 1000UL; // 15 minutes
+  static constexpr uint32_t PING_RATE_LIMIT_MINUTES = 1;
+  static constexpr uint32_t RESPONSE_RATE_LIMIT_MS = PING_RATE_LIMIT_MINUTES * 60 * 1000UL;
+  static constexpr uint32_t DEDUP_TIMEOUT_MS = 60000; // 60 seconds for !ping deduplication
 
   uint32_t lastPayloadHash;
   uint32_t lastPayloadTime;

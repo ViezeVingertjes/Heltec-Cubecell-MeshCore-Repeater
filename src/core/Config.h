@@ -2,18 +2,16 @@
 
 #include <Arduino.h>
 
+// Firmware version
+#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_BUILD_DATE __DATE__
+
 namespace Config {
 
 namespace Power {
 constexpr bool LIGHT_SLEEP_ENABLED = true;
 constexpr bool DYNAMIC_VEXT_CONTROL = true;
 } // namespace Power
-
-namespace LED {
-constexpr bool ENABLED = false;
-constexpr uint8_t BRIGHTNESS = 25;
-constexpr uint32_t FLASH_DURATION_MS = 50;
-} // namespace LED
 
 namespace LoRa {
 constexpr uint32_t FREQUENCY = 869618000;
@@ -30,13 +28,6 @@ constexpr uint32_t TX_TIMEOUT_MS = 3000;
 
 namespace Logging {
 constexpr size_t BUFFER_SIZE = 128;  // Reduced from 256 to save stack space
-}
-
-namespace NodeIdentity {
-// Set USE_MANUAL_ID to true to override hardware-generated ID
-constexpr bool USE_MANUAL_ID = false;
-constexpr uint16_t MANUAL_NODE_ID = 0xFF00;    // Custom test node ID
-constexpr uint8_t MANUAL_NODE_HASH = 0x00;     // Reserved value - minimal collision risk with crypto-generated IDs
 }
 
 namespace Dispatcher {
@@ -60,7 +51,11 @@ constexpr int16_t MIN_RSSI_TO_FORWARD = -120;
 // Delay calculation parameters - tune these for latency vs collision tradeoff
 constexpr float RX_DELAY_BASE = 2.5f;           // Base for exponential backoff
 constexpr float TX_DELAY_FACTOR = 2.0f;         // Jitter slot size multiplier
-constexpr float AIRTIME_BUDGET_FACTOR = 0.0f;   // Duty cycle limiting (0 = disabled)
+
+// WARNING: Duty cycle enforcement is currently disabled. Users MUST ensure
+// compliance with local regulations (e.g., EU 868MHz requires 1% duty cycle).
+// Consider implementing duty cycle tracking for production deployments.
+constexpr bool DUTY_CYCLE_ENABLED = false;
 constexpr uint32_t MIN_DELAY_THRESHOLD_MS = 20; // Reduced from 50ms for lower latency
 constexpr uint8_t TX_DELAY_JITTER_SLOTS = 6;    // Random jitter slots (0-5)
 

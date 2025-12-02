@@ -26,7 +26,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Don't ignore lib/ - contains ed25519 source
+# lib/
 lib64/
 parts/
 sdist/

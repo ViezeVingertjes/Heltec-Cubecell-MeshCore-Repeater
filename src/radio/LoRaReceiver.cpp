@@ -1,5 +1,4 @@
 #include "LoRaReceiver.h"
-#include "../core/LEDIndicator.h"
 #include "../core/Logger.h"
 #include "../core/PacketValidator.h"
 #include "../mesh/PacketDispatcher.h"
@@ -93,9 +92,6 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
 
     uint32_t timestamp = millis();
     getInstance().packetQueue.enqueue(packet, rssi, snr, timestamp);
-    
-    // Flash green LED to indicate packet received
-    LEDIndicator::getInstance().flashRX();
   } else {
     LOG_WARN("Failed to decode packet");
   }

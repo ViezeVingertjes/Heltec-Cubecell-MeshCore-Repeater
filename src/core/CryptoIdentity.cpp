@@ -52,6 +52,15 @@ void CryptoIdentity::saveToEEPROM() {
   EEPROM.commit();
 }
 
+// WARNING: This entropy collection method uses weak sources and is NOT
+// cryptographically secure. It relies on analog noise, timing jitter, and
+// Arduino's pseudo-random number generator. For production deployments requiring
+// high security, consider:
+// 1. Using a hardware RNG if available
+// 2. Pre-generating keys in a high-entropy environment
+// 3. Loading externally generated keys
+// The current implementation is suitable for device identification but may not
+// provide sufficient entropy for high-security cryptographic applications.
 void CryptoIdentity::collectEntropy(uint8_t *dest, size_t len) {
   randomSeed(analogRead(ADC) ^ micros());
   for (size_t i = 0; i < len; ++i) {

@@ -1,6 +1,5 @@
 #include "core/Config.h"
 #include "core/CryptoIdentity.h"
-#include "core/LEDIndicator.h"
 #include "core/Logger.h"
 #include "core/NodeConfig.h"
 #include "mesh/processors/Deduplicator.h"
@@ -30,14 +29,13 @@ void setup() {
 #endif
 
   LOG_INFO("=== CubeCell MeshCore Starting ===");
+  LOG_INFO_FMT("Firmware: v%s (built %s)", FIRMWARE_VERSION, FIRMWARE_BUILD_DATE);
 
   CryptoIdentity::getInstance().initialize();
   PublicChannelAnnouncer::getInstance().initialize();
 
   PowerManager::getInstance().initialize();
   batteryMonitor.initialize();
-  LEDIndicator::getInstance().initialize();
-  LOG_INFO("LED indicator initialized");
 
   MeshCore::NodeConfig::getInstance().initialize();
 
@@ -55,10 +53,9 @@ void setup() {
     uint8_t nodeHash = MeshCore::NodeConfig::getInstance().getNodeHash();
     LOG_INFO_FMT("Forwarding ENABLED - Node ID: 0x%04X, Hash: 0x%02X", nodeId,
                  nodeHash);
-    LOG_INFO_FMT("RX Delay: %.2f, TX Delay: %.2f, Airtime Factor: %.2f",
+    LOG_INFO_FMT("RX Delay: %.2f, TX Delay: %.2f",
                  Config::Forwarding::RX_DELAY_BASE,
-                 Config::Forwarding::TX_DELAY_FACTOR,
-                 Config::Forwarding::AIRTIME_BUDGET_FACTOR);
+                 Config::Forwarding::TX_DELAY_FACTOR);
   } else {
     LOG_INFO("Forwarding DISABLED");
   }
@@ -81,7 +78,6 @@ void setup() {
 void loop() {
   Radio.IrqProcess();
   LoRaReceiver::getInstance().processQueue();
-  LEDIndicator::getInstance().loop();
 
   if (Config::Forwarding::ENABLED) {
     packetForwarder.loop();

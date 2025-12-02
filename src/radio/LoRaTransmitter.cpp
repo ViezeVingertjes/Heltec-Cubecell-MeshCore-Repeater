@@ -1,5 +1,4 @@
 #include "LoRaTransmitter.h"
-#include "../core/LEDIndicator.h"
 #include "../core/Logger.h"
 #include <Arduino.h>
 
@@ -60,9 +59,6 @@ bool LoRaTransmitter::transmit(const uint8_t *data, uint16_t length) {
   txStartTime = millis();
   transmitCount++;
   Radio.Send(const_cast<uint8_t *>(data), length);
-  
-  // Flash blue LED to indicate packet transmitted
-  LEDIndicator::getInstance().flashTX();
 
   return true;
 }
@@ -77,13 +73,11 @@ void LoRaTransmitter::notifyTxComplete(bool success) {
   if (success) {
     uint32_t airtime = millis() - txStartTime;
     totalAirtimeMs += airtime;
+    
+    // Duty cycle enforcement disabled
+    nextAllowedTxTime = millis();
 
-    uint32_t silencePeriod = static_cast<uint32_t>(
-        airtime * Config::Forwarding::AIRTIME_BUDGET_FACTOR);
-    nextAllowedTxTime = millis() + silencePeriod;
-
-    LOG_DEBUG_FMT("TX complete, airtime: %lu ms, silence until: %lu ms",
-                  airtime, silencePeriod);
+    LOG_DEBUG_FMT("TX complete, airtime: %lu ms", airtime);
   } else {
     failureCount++;
   }
