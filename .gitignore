@@ -1,0 +1,66 @@
+# PlatformIO
+.pio/
+.vscode/
+.clang_complete
+.gcc-flags.json
+
+# Build artifacts
+*.o
+*.a
+*.elf
+*.bin
+*.hex
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+# Don't ignore lib/ - contains ed25519 source
+# lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.bak
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
