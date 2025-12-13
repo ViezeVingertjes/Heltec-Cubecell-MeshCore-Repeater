@@ -13,6 +13,15 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
     return ProcessResult::CONTINUE;
   }
 
+  // Skip packets that should be handled by specialized processors
+  // TRACE and CONTROL packets have special handling requirements
+  if (event.packet.payloadType == PayloadType::TRACE ||
+      event.packet.payloadType == PayloadType::CONTROL) {
+    LOG_DEBUG_FMT("PacketForwarder skipping %s packet for specialized handler",
+                  event.packet.payloadType == PayloadType::TRACE ? "TRACE" : "CONTROL");
+    return ProcessResult::CONTINUE;
+  }
+
   // Check if packet should be forwarded
   auto forwardCheck = shouldForward(event.packet, event.rssi, ctx);
   if (forwardCheck.isError()) {
@@ -28,16 +37,32 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
 
   ctx.shouldForward = true;
 
-  // Create copy and add our node to path
+  // Create copy for modification
   DecodedPacket forwardPacket;
   memcpy(&forwardPacket, &event.packet, sizeof(DecodedPacket));
   
-  auto pathResult = addNodeToPath(forwardPacket);
-  if (pathResult.isError()) {
-    LOG_WARN_FMT("Cannot add to path: %s",
-                 errorCodeToString(pathResult.error));
-    droppedCount++;
-    return ProcessResult::CONTINUE;
+  // Handle path modification based on routing type
+  bool isDirect = (forwardPacket.routeType == RouteType::DIRECT ||
+                   forwardPacket.routeType == RouteType::TRANSPORT_DIRECT);
+  
+  if (isDirect) {
+    // For DIRECT routing, remove ourselves from the path
+    auto pathResult = removeSelfFromPath(forwardPacket);
+    if (pathResult.isError()) {
+      LOG_WARN_FMT("Cannot remove from path: %s",
+                   errorCodeToString(pathResult.error));
+      droppedCount++;
+      return ProcessResult::CONTINUE;
+    }
+  } else {
+    // For FLOOD routing, add ourselves to the path
+    auto pathResult = addNodeToPath(forwardPacket);
+    if (pathResult.isError()) {
+      LOG_WARN_FMT("Cannot add to path: %s",
+                   errorCodeToString(pathResult.error));
+      droppedCount++;
+      return ProcessResult::CONTINUE;
+    }
   }
 
   // Encode packet for transmission
@@ -50,12 +75,31 @@ ProcessResult PacketForwarder::processPacket(const PacketEvent &event,
   }
   uint16_t length = encodeResult.value;
 
-  // Calculate delays based on signal quality
+  // Log transport codes if present
+  if (forwardPacket.hasTransportCodes) {
+    LOG_INFO_FMT("Forwarding packet with transport codes: [%d, %d]",
+                 forwardPacket.transportCodes[0], forwardPacket.transportCodes[1]);
+  }
+
+  // Calculate delays based on routing type and signal quality
   uint32_t airtime = LoRaTransmitter::estimateAirtime(length);
-  float score = calculatePacketScore(event.snr);
-  uint32_t rxDelay = calculateRxDelay(score, airtime);
-  uint32_t txJitter = calculateTxJitter(airtime);
-  uint32_t totalDelay = rxDelay + txJitter;
+  uint32_t totalDelay;
+  
+  if (isDirect) {
+    // DIRECT routing gets highest priority - minimal delay
+    // Small jitter to avoid collisions when multiple nodes forward simultaneously
+    uint32_t txJitter = calculateTxJitter(airtime);
+    totalDelay = txJitter / 2; // Half the normal jitter for faster forwarding
+    LOG_INFO_FMT("DIRECT routing delay: %lu ms", totalDelay);
+  } else {
+    // FLOOD routing uses SNR-based adaptive delay
+    float score = calculatePacketScore(event.snr);
+    uint32_t rxDelay = calculateRxDelay(score, airtime);
+    uint32_t txJitter = calculateTxJitter(airtime);
+    totalDelay = rxDelay + txJitter;
+    LOG_INFO_FMT("FLOOD routing delay: %lu ms (rxDelay=%lu, txJitter=%lu)", 
+                 totalDelay, rxDelay, txJitter);
+  }
 
   // Forward immediately or queue based on delay
   if (totalDelay < Config::Forwarding::MIN_DELAY_THRESHOLD_MS) {
@@ -81,30 +125,54 @@ Result<void> PacketForwarder::shouldForward(const DecodedPacket &packet,
     return Err(ErrorCode::DUPLICATE);
   }
 
-  // Only forward flood packets
-  if (packet.routeType != RouteType::FLOOD &&
-      packet.routeType != RouteType::TRANSPORT_FLOOD) {
-    LOG_DEBUG("Not forwarding non-flood packet");
+  // Check if this is a routable packet type
+  bool isFlood = (packet.routeType == RouteType::FLOOD ||
+                  packet.routeType == RouteType::TRANSPORT_FLOOD);
+  bool isDirect = (packet.routeType == RouteType::DIRECT ||
+                   packet.routeType == RouteType::TRANSPORT_DIRECT);
+  
+  if (!isFlood && !isDirect) {
+    LOG_DEBUG("Not forwarding unknown route type");
     return Err(ErrorCode::INVALID_PACKET);
   }
 
-  // Check path length
-  if (packet.pathLength >= Config::Forwarding::MAX_PATH_LENGTH) {
-    LOG_DEBUG_FMT("Path too long (%d), not forwarding", packet.pathLength);
-    return Err(ErrorCode::PATH_TOO_LONG);
+  // For DIRECT routing, check if we're the next hop
+  if (isDirect) {
+    if (packet.pathLength == 0) {
+      LOG_DEBUG("DIRECT packet with empty path, not forwarding");
+      return Err(ErrorCode::INVALID_PACKET);
+    }
+    
+    uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
+    if (packet.path[0] != nodeHash) {
+      LOG_DEBUG_FMT("Not next hop in DIRECT route (next=0x%02X, us=0x%02X)", 
+                    packet.path[0], nodeHash);
+      return Err(ErrorCode::INVALID_PACKET);
+    }
+    
+    LOG_INFO_FMT("We are next hop in DIRECT route (remaining path=%d)", 
+                 packet.pathLength);
+  }
+
+  // For FLOOD routing, check path length and loops
+  if (isFlood) {
+    if (packet.pathLength >= Config::Forwarding::MAX_PATH_LENGTH) {
+      LOG_DEBUG_FMT("Path too long (%d), not forwarding", packet.pathLength);
+      return Err(ErrorCode::PATH_TOO_LONG);
+    }
+    
+    // Check for routing loops in FLOOD packets
+    uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
+    if (PacketValidator::isNodeInPath(packet, nodeHash)) {
+      LOG_DEBUG("Node already in path, not forwarding (loop prevention)");
+      return Err(ErrorCode::INVALID_PACKET);
+    }
   }
 
   // Check signal strength
   if (rssi < Config::Forwarding::MIN_RSSI_TO_FORWARD) {
     LOG_DEBUG_FMT("Signal too weak (%d dBm), not forwarding", rssi);
     return Err(ErrorCode::WEAK_SIGNAL);
-  }
-
-  // Check for routing loops
-  uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
-  if (PacketValidator::isNodeInPath(packet, nodeHash)) {
-    LOG_DEBUG("Node already in path, not forwarding (loop prevention)");
-    return Err(ErrorCode::INVALID_PACKET);
   }
 
   // Validate packet structure
@@ -149,6 +217,28 @@ Result<void> PacketForwarder::addNodeToPath(DecodedPacket &packet) {
 
   packet.path[packet.pathLength] = nodeHash;
   packet.pathLength++;
+
+  LOG_INFO_FMT("Path updated, new path_len=%d", packet.pathLength);
+
+  return Ok();
+}
+
+Result<void> PacketForwarder::removeSelfFromPath(DecodedPacket &packet) {
+  // Validate we have at least one byte in path
+  if (packet.pathLength == 0) {
+    return Err(ErrorCode::INVALID_PARAMETER);
+  }
+
+  uint8_t nodeHash = NodeConfig::getInstance().getNodeHash();
+  
+  LOG_INFO_FMT("Removing node hash 0x%02X from DIRECT path (current path_len=%d)",
+               nodeHash, packet.pathLength);
+
+  // Shift path left by 1 byte (PATH_HASH_SIZE = 1 in V1 protocol)
+  packet.pathLength--;
+  for (uint8_t i = 0; i < packet.pathLength; i++) {
+    packet.path[i] = packet.path[i + 1];
+  }
 
   LOG_INFO_FMT("Path updated, new path_len=%d", packet.pathLength);
 

@@ -29,6 +29,7 @@ enum class PayloadType : uint8_t {
   PATH = 0x08,
   TRACE = 0x09,
   MULTIPART = 0x0A,
+  CONTROL = 0x0B,
   RAW_CUSTOM = 0x0F
 };
 

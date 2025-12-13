@@ -8,10 +8,15 @@ Production-ready LoRa mesh network repeater firmware for Heltec CubeCell devices
 
 ## Features
 
-- **Intelligent Forwarding** - SNR-based adaptive delays minimize collisions, nodes with better signal forward first
+- **Complete Routing Support** - Full MeshCore protocol compatibility:
+  - FLOOD routing with SNR-based adaptive delays (better signal = forward first)
+  - DIRECT routing for point-to-point communication paths
+  - Transport code support for network segmentation/bridging
 - **Multi-Channel Support** - Monitor public channel + up to 8 private encrypted channels (AES-128)
+- **Network Discovery** - Respond to discovery requests for network topology mapping
 - **Network Commands** - Respond to `!status` (uptime/stats) and `!advert` (node announcement) on any channel
 - **Path Tracing** - Handle TRACE packets for network diagnostics with SNR recording
+- **All Payload Types** - Forward all MeshCore packet types (REQ, RESPONSE, ACK, PATH, MULTIPART, etc.)
 - **Deduplication & Loop Prevention** - Hash-based packet cache prevents duplicates and routing loops
 - **Power Optimized** - Light sleep mode between operations extends battery life
 - **Debug Mode** - Optional serial logging for development and troubleshooting
@@ -107,15 +112,19 @@ pio device monitor
 
 ## How It Works
 
-**Adaptive Forwarding**: Nodes calculate forwarding delay based on signal quality (SNR). Better signal = shorter delay, so the best-positioned node forwards first. Others hear the transmission and cancel their pending forward, avoiding collisions.
+**Intelligent Routing**: 
+- **FLOOD routing**: Nodes calculate forwarding delay based on signal quality (SNR). Better signal = shorter delay, so the best-positioned node forwards first. Others hear the transmission and cancel their pending forward, avoiding collisions.
+- **DIRECT routing**: Packets follow a specified path hop-by-hop. Each node checks if it's the next hop, removes itself from the path, and forwards with minimal delay for fast delivery.
+- **Transport codes**: Preserved during forwarding to enable network segmentation and bridging.
 
 **Processing Pipeline**: Packets flow through priority-ordered processors:
 1. Deduplicator (priority 10) - Filter duplicates
-2. PacketForwarder (20) - Forward FLOOD packets with adaptive delays
+2. PacketForwarder (20) - Forward FLOOD/DIRECT packets with adaptive delays
 3. TraceHandler (30) - Handle TRACE packets for path diagnostics
 4. StatusResponder (35) - Process `!status` commands
 5. AdvertResponder (35) - Process `!advert` commands
-6. PacketLogger (99) - Debug logging
+6. DiscoveryResponder (36) - Respond to network discovery requests
+7. PacketLogger (99) - Debug logging
 
 **Security**: Ed25519 identity generated on first boot from entropy (ADC + timing jitter). Private channels use AES-128 encryption. Keys stored in plaintext EEPROM.
 
@@ -123,9 +132,15 @@ pio device monitor
 
 ## Protocol Support
 
-- **Routing**: FLOOD, DIRECT, TRANSPORT_FLOOD, TRANSPORT_DIRECT
-- **Payloads**: 12 types including REQ, RESPONSE, TXT_MSG, ACK, ADVERT, GRP_TXT, GRP_DATA, TRACE, MULTIPART, and more
-- **Channels**: 1 public + up to 8 private encrypted channels
+- **Routing**: Full support for all MeshCore V1 routing modes
+  - FLOOD - Multi-hop broadcast with path building
+  - DIRECT - Point-to-point along specified path
+  - TRANSPORT_FLOOD - Flood with transport codes for segmentation
+  - TRANSPORT_DIRECT - Direct with transport codes
+- **Payloads**: All 13 MeshCore V1 payload types
+  - REQ, RESPONSE, TXT_MSG, ACK, ADVERT, GRP_TXT, GRP_DATA
+  - ANON_REQ, PATH, TRACE, MULTIPART, CONTROL, RAW_CUSTOM
+- **Channels**: 1 public + up to 8 private encrypted channels (AES-128)
 
 ## Troubleshooting
 

@@ -267,6 +267,8 @@ const char *PacketDecoder::payloadTypeToString(PayloadType type) {
     return "Trace";
   case PayloadType::MULTIPART:
     return "Multipart";
+  case PayloadType::CONTROL:
+    return "Control";
   case PayloadType::RAW_CUSTOM:
     return "RawCustom";
   default:

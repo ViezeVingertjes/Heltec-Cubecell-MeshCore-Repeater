@@ -14,6 +14,7 @@
 #include "mesh/processors/StatusResponder.h"
 #include "mesh/processors/AdvertResponder.h"
 #include "mesh/processors/TraceHandler.h"
+#include "mesh/processors/DiscoveryResponder.h"
 #include "power/PowerManager.h"
 #include "radio/LoRaReceiver.h"
 #include "radio/LoRaTransmitter.h"
@@ -24,6 +25,7 @@ static MeshCore::TraceHandler traceHandler;
 static MeshCore::PacketForwarder packetForwarder;
 static StatusResponder statusResponder;
 static AdvertResponder advertResponder;
+static MeshCore::DiscoveryResponder discoveryResponder;
 
 void setup() {
 #ifdef ENABLE_LOGGING
@@ -48,6 +50,7 @@ void setup() {
   dispatcher.addProcessor(&packetLogger);
   dispatcher.addProcessor(&statusResponder);
   dispatcher.addProcessor(&advertResponder);
+  dispatcher.addProcessor(&discoveryResponder);
 
   if (Config::Forwarding::ENABLED) {
     dispatcher.addProcessor(&traceHandler);
@@ -94,13 +97,17 @@ void loop() {
   
   // Advert responder (only process if has pending response)
   advertResponder.loop();
+  
+  // Discovery responder (only process if has pending response)
+  discoveryResponder.loop();
 
   // Power management - sleep when possible
   if (Config::Power::LIGHT_SLEEP_ENABLED) {
     bool hasPendingWork = (Config::Forwarding::ENABLED && 
                            packetForwarder.hasPendingPackets()) ||
                           statusResponder.hasPendingResponse() ||
-                          advertResponder.hasPendingResponse();
+                          advertResponder.hasPendingResponse() ||
+                          discoveryResponder.hasPendingResponse();
     if (!hasPendingWork) {
       PowerManager::getInstance().sleep();
     }

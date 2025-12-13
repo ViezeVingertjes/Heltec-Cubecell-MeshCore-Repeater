@@ -28,6 +28,14 @@ struct DelayedPacket {
  * PacketForwarder handles mesh packet forwarding with adaptive delays.
  * Better signal quality results in shorter delays, allowing nodes with
  * better reception to forward first.
+ * 
+ * Supports all MeshCore routing and payload types:
+ * - Route Types: FLOOD, DIRECT, TRANSPORT_FLOOD, TRANSPORT_DIRECT
+ * - Payload Types: REQ, RESPONSE, TXT_MSG, ACK, ADVERT, GRP_TXT, GRP_DATA,
+ *                  ANON_REQ, PATH, TRACE, MULTIPART, CONTROL, RAW_CUSTOM
+ * 
+ * Forwarding is based on routing type, not payload type, ensuring protocol
+ * compatibility with all message types.
  */
 class PacketForwarder : public IPacketProcessor {
 public:
@@ -60,6 +68,7 @@ private:
                              const ProcessingContext &ctx);
   Result<void> transmitPacket(const uint8_t *rawPacket, uint16_t length);
   Result<void> addNodeToPath(DecodedPacket &packet);
+  Result<void> removeSelfFromPath(DecodedPacket &packet);
   Result<uint16_t> encodePacketForForwarding(const DecodedPacket &packet, 
                                               uint8_t *buffer, uint16_t bufferSize);
   void handleImmediateForward(const uint8_t *rawPacket, uint16_t length, 

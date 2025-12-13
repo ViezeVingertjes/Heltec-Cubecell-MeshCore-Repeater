@@ -65,9 +65,12 @@ ProcessResult TraceHandler::processPacket(const PacketEvent &event,
 
   if (appendSnrAndForward(forwardPacket, event.snr)) {
     tracesHandled++;
+    // Note: We set shouldForward for tracking, but packet is already sent
+    // by appendSnrAndForward, so PacketForwarder won't see it anyway
     ctx.shouldForward = true;
   }
 
+  // Always STOP - TRACE packets are handled exclusively by this processor
   return ProcessResult::STOP;
 }
 
