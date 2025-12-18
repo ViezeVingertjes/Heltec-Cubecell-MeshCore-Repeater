@@ -66,6 +66,12 @@ constexpr uint16_t CUSTOM_NODE_ID = 0x0000;  // Range: 0x0001-0xFFFE
 // Enable custom node hash (false = use hardware-generated hash from chip)
 constexpr bool USE_CUSTOM_NODE_HASH = false;
 constexpr uint8_t CUSTOM_NODE_HASH = 0x00;   // Range: 0x01-0xFE
+
+// Location (included in advert packets)
+// Set to true to include location in !advert responses
+constexpr bool HAS_LOCATION = true;
+constexpr int32_t LOCATION_LATITUDE = 51997698;   // 51.997698 in microdegrees
+constexpr int32_t LOCATION_LONGITUDE = 5078354;   // 5.078354 in microdegrees
 } // namespace Identity
 
 namespace Forwarding {

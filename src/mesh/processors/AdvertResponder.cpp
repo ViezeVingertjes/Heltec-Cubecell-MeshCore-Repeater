@@ -137,11 +137,24 @@ uint8_t AdvertResponder::buildAdvertAppData(uint8_t *appData) {
   // Build appdata according to MeshCore format
   uint8_t flags = static_cast<uint8_t>(MeshCore::AdvertType::REPEATER);
   
+  // Add location flag if configured
+  if (Config::Identity::HAS_LOCATION) {
+    flags |= MeshCore::ADV_LATLON_MASK;
+  }
+  
   // Add name flag
   flags |= MeshCore::ADV_NAME_MASK;
   
   appData[0] = flags;
   int idx = 1;
+  
+  // Add location if configured (must come before name per MeshCore spec)
+  if (Config::Identity::HAS_LOCATION) {
+    memcpy(&appData[idx], &Config::Identity::LOCATION_LATITUDE, 4);
+    idx += 4;
+    memcpy(&appData[idx], &Config::Identity::LOCATION_LONGITUDE, 4);
+    idx += 4;
+  }
   
   // Format name with node hash to match chat name format (e.g., "VieZe Rogue 4A")
   uint8_t nodeHash = MeshCore::NodeConfig::getInstance().getNodeHash();
