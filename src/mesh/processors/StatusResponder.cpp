@@ -96,17 +96,22 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
     }
   };
   
+  char uptimeText[24];
   char wakeText[24];
   char sleepText[24];
+  formatUptime(uptimeText, sizeof(uptimeText), totalUptime);
   formatUptime(wakeText, sizeof(wakeText), wakeTime);
   formatUptime(sleepText, sizeof(sleepText), sleepTime);
+  
+  // Calculate sleep percentage
+  uint8_t sleepPercent = totalUptime > 0 ? (sleepTime * 100) / totalUptime : 0;
   
   // Get packet count
   uint32_t packetCount = LoRaReceiver::getPacketCount();
   
   char message[PublicChannelAnnouncer::MAX_MESSAGE_LEN];
-  snprintf(message, sizeof(message), "%s %02X: W:%s S:%s P:%lu", 
-           Config::Identity::NODE_NAME, nodeHash, wakeText, sleepText, packetCount);
+  snprintf(message, sizeof(message), "%s %02X: U:%s W:%s S:%s (S:%u%%) P:%lu", 
+           Config::Identity::NODE_NAME, nodeHash, uptimeText, wakeText, sleepText, sleepPercent, packetCount);
 
   // Build packet to get ACTUAL encoded length (not estimated)
   // Respond on the same private channel as the request
