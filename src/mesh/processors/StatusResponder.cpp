@@ -29,21 +29,14 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
 
   uint32_t msgTimestamp = 0;
   char text[PublicChannelAnnouncer::MAX_MESSAGE_LEN];
-  bool isPrivateChannel = false;
   uint8_t privateChannelIndex = 0;
   
-  // Try decoding from public channel first
-  if (!PublicChannelAnnouncer::getInstance().decodeMessage(event.packet,
-                                                           msgTimestamp, text,
-                                                           sizeof(text))) {
-    // Try private channels
-    if (!PrivateChannelAnnouncer::getInstance().decodeMessage(event.packet,
-                                                              msgTimestamp, text,
-                                                              sizeof(text),
-                                                              privateChannelIndex)) {
-      return MeshCore::ProcessResult::CONTINUE;
-    }
-    isPrivateChannel = true;
+  // Only allow !status command in private channels to prevent public abuse
+  if (!PrivateChannelAnnouncer::getInstance().decodeMessage(event.packet,
+                                                            msgTimestamp, text,
+                                                            sizeof(text),
+                                                            privateChannelIndex)) {
+    return MeshCore::ProcessResult::CONTINUE;
   }
 
   const char *content = text;
@@ -116,14 +109,11 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
            Config::Identity::NODE_NAME, nodeHash, wakeText, sleepText, packetCount);
 
   // Build packet to get ACTUAL encoded length (not estimated)
-  // Respond on the same channel as the request
+  // Respond on the same private channel as the request
   uint32_t timestamp = TimeSync::now();
-  bool buildSuccess = isPrivateChannel 
-    ? PrivateChannelAnnouncer::getInstance().buildPacket(message, pendingPacket, 
-                                                         pendingPacketLength, timestamp,
-                                                         privateChannelIndex)
-    : PublicChannelAnnouncer::getInstance().buildPacket(message, pendingPacket, 
-                                                        pendingPacketLength, timestamp);
+  bool buildSuccess = PrivateChannelAnnouncer::getInstance().buildPacket(message, pendingPacket, 
+                                                                          pendingPacketLength, timestamp,
+                                                                          privateChannelIndex);
   
   if (!buildSuccess) {
     LOG_WARN("Failed to build status response packet");
@@ -135,13 +125,8 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
   pendingResponse = true;
   responseTime = millis() + jitter;
   
-  if (isPrivateChannel) {
-    LOG_INFO_FMT("Queued !status response (%u bytes) with %lu ms jitter on private channel %d", 
-                 pendingPacketLength, jitter, privateChannelIndex);
-  } else {
-    LOG_INFO_FMT("Queued !status response (%u bytes) with %lu ms jitter on public channel", 
-                 pendingPacketLength, jitter);
-  }
+  LOG_INFO_FMT("Queued !status response (%u bytes) with %lu ms jitter on private channel %d", 
+               pendingPacketLength, jitter, privateChannelIndex);
   return MeshCore::ProcessResult::CONTINUE;
 }
 

@@ -30,21 +30,14 @@ AdvertResponder::processPacket(const MeshCore::PacketEvent &event,
 
   uint32_t msgTimestamp = 0;
   char text[PublicChannelAnnouncer::MAX_MESSAGE_LEN];
-  bool isPrivateChannel = false;
   uint8_t privateChannelIndex = 0;
   
-  // Try decoding from public channel first
-  if (!PublicChannelAnnouncer::getInstance().decodeMessage(event.packet,
-                                                           msgTimestamp, text,
-                                                           sizeof(text))) {
-    // Try private channels
-    if (!PrivateChannelAnnouncer::getInstance().decodeMessage(event.packet,
-                                                              msgTimestamp, text,
-                                                              sizeof(text),
-                                                              privateChannelIndex)) {
-      return MeshCore::ProcessResult::CONTINUE;
-    }
-    isPrivateChannel = true;
+  // Only allow !advert command in private channels to prevent public abuse
+  if (!PrivateChannelAnnouncer::getInstance().decodeMessage(event.packet,
+                                                            msgTimestamp, text,
+                                                            sizeof(text),
+                                                            privateChannelIndex)) {
+    return MeshCore::ProcessResult::CONTINUE;
   }
 
   const char *content = text;
