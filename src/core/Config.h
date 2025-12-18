@@ -9,7 +9,7 @@
 namespace Config {
 
 namespace Power {
-constexpr bool LIGHT_SLEEP_ENABLED = false;  // Disabled to test RX sensitivity
+constexpr bool LIGHT_SLEEP_ENABLED = true;
 // Note: VEXT control is handled automatically by CubeCell framework
 // No manual control is needed for HTCC-AB02A
 } // namespace Power
@@ -69,7 +69,7 @@ constexpr uint8_t CUSTOM_NODE_HASH = 0x00;   // Range: 0x01-0xFE
 
 // Location (included in advert packets)
 // Set to true to include location in !advert responses
-constexpr bool HAS_LOCATION = false;
+constexpr bool HAS_LOCATION = true;
 constexpr int32_t LOCATION_LATITUDE = 51997698;   // 51.997698 in microdegrees
 constexpr int32_t LOCATION_LONGITUDE = 5078354;   // 5.078354 in microdegrees
 } // namespace Identity
