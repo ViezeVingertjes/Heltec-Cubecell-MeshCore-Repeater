@@ -9,21 +9,21 @@
 namespace Config {
 
 namespace Power {
-constexpr bool LIGHT_SLEEP_ENABLED = true;
+constexpr bool LIGHT_SLEEP_ENABLED = false;  // Disabled to test RX sensitivity
 // Note: VEXT control is handled automatically by CubeCell framework
 // No manual control is needed for HTCC-AB02A
 } // namespace Power
 
 namespace LoRa {
 constexpr uint32_t FREQUENCY = 869618000;
-constexpr uint8_t BANDWIDTH = 3;
+constexpr uint8_t BANDWIDTH = 3;  // LORA_BW_062 = 62.5 kHz
 constexpr uint8_t SPREADING_FACTOR = 8;
 constexpr uint8_t CODING_RATE = 4;
 constexpr uint8_t PREAMBLE_LENGTH = 16;
 constexpr uint8_t SYNC_WORD = 0x12;
 constexpr bool FIXED_LENGTH_PAYLOAD = false;
 constexpr bool IQ_INVERSION = false;
-constexpr uint8_t TX_POWER = 21;
+constexpr uint8_t TX_POWER = 22;  // Maximum power for SX1262
 constexpr uint32_t TX_TIMEOUT_MS = 3000;
 } // namespace LoRa
 
@@ -69,7 +69,7 @@ constexpr uint8_t CUSTOM_NODE_HASH = 0x00;   // Range: 0x01-0xFE
 
 // Location (included in advert packets)
 // Set to true to include location in !advert responses
-constexpr bool HAS_LOCATION = true;
+constexpr bool HAS_LOCATION = false;
 constexpr int32_t LOCATION_LATITUDE = 51997698;   // 51.997698 in microdegrees
 constexpr int32_t LOCATION_LONGITUDE = 5078354;   // 5.078354 in microdegrees
 } // namespace Identity

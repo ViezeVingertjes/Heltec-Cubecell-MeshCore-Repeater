@@ -12,7 +12,7 @@
 #include "../../radio/LoRaReceiver.h"
 #include "../../radio/LoRaTransmitter.h"
 #include "../channels/PrivateChannelAnnouncer.h"
-#include "../channels/PublicChannelAnnouncer.h"
+#include "../channels/ChannelAnnouncer.h"
 
 using MeshCore::PayloadType;
 
@@ -28,7 +28,7 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
   }
 
   uint32_t msgTimestamp = 0;
-  char text[PublicChannelAnnouncer::MAX_MESSAGE_LEN];
+  char text[ChannelAnnouncer::MAX_MESSAGE_LEN];
   uint8_t privateChannelIndex = 0;
   
   // Only allow !status command in private channels to prevent public abuse
@@ -109,7 +109,7 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
   // Get packet count
   uint32_t packetCount = LoRaReceiver::getPacketCount();
   
-  char message[PublicChannelAnnouncer::MAX_MESSAGE_LEN];
+  char message[ChannelAnnouncer::MAX_MESSAGE_LEN];
   snprintf(message, sizeof(message), "%s %02X: U:%s W:%s S:%s (S:%u%%) P:%lu", 
            Config::Identity::NODE_NAME, nodeHash, uptimeText, wakeText, sleepText, sleepPercent, packetCount);
 

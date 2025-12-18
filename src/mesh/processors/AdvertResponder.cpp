@@ -11,7 +11,7 @@
 #include "../../core/CryptoIdentity.h"
 #include "../../radio/LoRaTransmitter.h"
 #include "../channels/PrivateChannelAnnouncer.h"
-#include "../channels/PublicChannelAnnouncer.h"
+#include "../channels/ChannelAnnouncer.h"
 #include "../../lib/ed25519/ed_25519.h"
 
 using MeshCore::PayloadType;
@@ -29,7 +29,7 @@ AdvertResponder::processPacket(const MeshCore::PacketEvent &event,
   }
 
   uint32_t msgTimestamp = 0;
-  char text[PublicChannelAnnouncer::MAX_MESSAGE_LEN];
+  char text[ChannelAnnouncer::MAX_MESSAGE_LEN];
   uint8_t privateChannelIndex = 0;
   
   // Only allow !advert command in private channels to prevent public abuse

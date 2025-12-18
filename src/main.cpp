@@ -7,7 +7,6 @@
 #include "core/Logger.h"
 #include "core/NodeConfig.h"
 #include "mesh/channels/PrivateChannelAnnouncer.h"
-#include "mesh/channels/PublicChannelAnnouncer.h"
 #include "mesh/processors/Deduplicator.h"
 #include "mesh/processors/PacketForwarder.h"
 #include "mesh/processors/PacketLogger.h"
@@ -37,7 +36,6 @@ void setup() {
   LOG_INFO_FMT("Firmware: v%s (built %s)", FIRMWARE_VERSION, FIRMWARE_BUILD_DATE);
 
   CryptoIdentity::getInstance().initialize();
-  PublicChannelAnnouncer::getInstance().initialize();
   PrivateChannelAnnouncer::getInstance().initialize();
 
   PowerManager::getInstance().initialize();

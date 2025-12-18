@@ -44,8 +44,8 @@ void LoRaReceiver::initialize() {
                     Config::LoRa::FIXED_LENGTH_PAYLOAD, true, 0, 0,
                     Config::LoRa::IQ_INVERSION, Config::LoRa::TX_TIMEOUT_MS);
 
-  LOG_INFO("Starting continuous reception");
-  Radio.Rx(0);
+  LOG_INFO("Starting continuous reception with RX boost");
+  Radio.RxBoosted(0);  // Use boosted LNA gain for ~3dB better sensitivity
 }
 
 void LoRaReceiver::processQueue() {
@@ -60,15 +60,15 @@ void LoRaReceiver::processQueue() {
 
 void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
                             int8_t snr) {
-  LOG_DEBUG_FMT("Packet received: %d bytes, RSSI: %d dBm, SNR: %d dB", size,
-                rssi, snr / 4);  // Convert SNR to dB for display
+  LOG_INFO_FMT("RX: %d bytes, RSSI: %d dBm, SNR: %d dB", size,
+               rssi, snr);  // Framework already provides SNR in dB
 
   // Validate raw packet before decoding
   auto validationResult = MeshCore::PacketValidator::validateRawPacket(payload, size);
   if (validationResult.isError()) {
     LOG_WARN_FMT("Invalid raw packet: %s", 
                  MeshCore::errorCodeToString(validationResult.error));
-    Radio.Rx(0);
+    Radio.RxBoosted(0);
     return;
   }
 
@@ -89,26 +89,28 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
     if (packetValidation.isError()) {
       LOG_WARN_FMT("Decoded packet validation failed: %s",
                    MeshCore::errorCodeToString(packetValidation.error));
-      Radio.Rx(0);
+      Radio.RxBoosted(0);
       return;
     }
 
     uint32_t timestamp = millis();
-    getInstance().packetQueue.enqueue(packet, rssi, snr, timestamp);
+    // MeshCore expects SNR in 0.25 dB units, so multiply by 4
+    int8_t snrScaled = snr * 4;
+    getInstance().packetQueue.enqueue(packet, rssi, snrScaled, timestamp);
     packetCount++; // Increment packet counter for successfully decoded packets
   } else {
     LOG_WARN("Failed to decode packet");
   }
 
-  Radio.Rx(0);
+  Radio.RxBoosted(0);
 }
 
 void LoRaReceiver::onRxTimeout() {
   LOG_DEBUG("RX timeout, restarting reception");
-  Radio.Rx(0);
+  Radio.RxBoosted(0);
 }
 
 void LoRaReceiver::onRxError() {
   LOG_WARN("RX error occurred, restarting reception");
-  Radio.Rx(0);
+  Radio.RxBoosted(0);
 }
