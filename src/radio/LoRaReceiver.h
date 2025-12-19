@@ -15,6 +15,7 @@ public:
   MeshCore::PacketQueue &getQueue() { return packetQueue; }
   
   static uint32_t getPacketCount() { return packetCount; }
+  static void resetPacketCount();
 
 private:
   LoRaReceiver() = default;

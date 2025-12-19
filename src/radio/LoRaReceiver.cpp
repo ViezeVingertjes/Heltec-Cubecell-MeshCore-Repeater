@@ -114,3 +114,8 @@ void LoRaReceiver::onRxError() {
   LOG_WARN("RX error occurred, restarting reception");
   Radio.RxBoosted(0);
 }
+
+void LoRaReceiver::resetPacketCount() {
+  packetCount = 0;
+  LOG_INFO("Packet count reset");
+}

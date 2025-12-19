@@ -20,6 +20,7 @@ public:
   
   uint32_t getTotalSleepTime() const { return totalSleepTimeMs; }
   uint32_t getSleepCycles() const { return sleepCycles; }
+  void resetStats();
 
 private:
   PowerManager() : sleepEnabled(true), totalSleepTimeMs(0), sleepCycles(0) {}

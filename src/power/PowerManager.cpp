@@ -67,3 +67,9 @@ void PowerManager::allowSleep() {
   LOG_DEBUG("Sleep enabled");
 }
 
+void PowerManager::resetStats() {
+  totalSleepTimeMs = 0;
+  sleepCycles = 0;
+  LOG_INFO("Power statistics reset");
+}
+

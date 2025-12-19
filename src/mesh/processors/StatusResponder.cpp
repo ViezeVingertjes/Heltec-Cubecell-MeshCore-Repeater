@@ -48,7 +48,10 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
     }
   }
 
-  if (strcmp(content, "!status") != 0) {
+  bool isStatus = (strcmp(content, "!status") == 0);
+  bool isClear = (strcmp(content, "!clear") == 0);
+  
+  if (!isStatus && !isClear) {
     return MeshCore::ProcessResult::CONTINUE;
   }
 
@@ -67,7 +70,36 @@ StatusResponder::processPacket(const MeshCore::PacketEvent &event,
   lastPayloadHash = payloadHash;
   lastPayloadTime = now;
 
-  // Prepare response message
+  // Handle !clear command
+  if (isClear) {
+    PowerManager::getInstance().resetStats();
+    LoRaReceiver::resetPacketCount();
+    
+    uint8_t nodeHash = MeshCore::NodeConfig::getInstance().getNodeHash();
+    char message[ChannelAnnouncer::MAX_MESSAGE_LEN];
+    snprintf(message, sizeof(message), "%s %02X: Stats cleared", 
+             Config::Identity::NODE_NAME, nodeHash);
+    
+    uint32_t timestamp = TimeSync::now();
+    bool buildSuccess = PrivateChannelAnnouncer::getInstance().buildPacket(message, pendingPacket, 
+                                                                            pendingPacketLength, timestamp,
+                                                                            privateChannelIndex);
+    
+    if (!buildSuccess) {
+      LOG_WARN("Failed to build clear response packet");
+      return MeshCore::ProcessResult::CONTINUE;
+    }
+    
+    uint32_t jitter = calculateResponseDelay(pendingPacketLength);
+    pendingResponse = true;
+    responseTime = millis() + jitter;
+    
+    LOG_INFO_FMT("Stats cleared, queued response (%u bytes) with %lu ms jitter on private channel %d", 
+                 pendingPacketLength, jitter, privateChannelIndex);
+    return MeshCore::ProcessResult::CONTINUE;
+  }
+
+  // Handle !status command
   uint8_t nodeHash = MeshCore::NodeConfig::getInstance().getNodeHash();
   
   // Format uptime info
