@@ -36,9 +36,20 @@ void PowerManager::sleep(uint32_t maxSleepMs) {
   
   lowPowerHandler();
   
-  uint32_t sleepDuration = millis() - sleepStart;
-  totalSleepTimeMs += sleepDuration;
-  sleepCycles++;
+  // Handle millis() overflow safely: the subtraction works correctly due to
+  // unsigned integer wraparound, but only accumulate if the result is reasonable
+  // (less than maxSleepMs or 10 seconds if maxSleepMs is 0)
+  uint32_t sleepEnd = millis();
+  uint32_t sleepDuration = sleepEnd - sleepStart;
+  uint32_t maxReasonable = (maxSleepMs > 0) ? maxSleepMs + 1000 : 10000;
+  
+  // Only accumulate if duration is reasonable (protects against millis() overflow glitches)
+  if (sleepDuration < maxReasonable) {
+    totalSleepTimeMs += sleepDuration;
+    sleepCycles++;
+  } else {
+    LOG_WARN_FMT("Ignoring suspicious sleep duration: %lu ms", sleepDuration);
+  }
 
   LOG_DEBUG_FMT("Slept for %lu ms (total: %lu ms, cycles: %lu)", 
                 sleepDuration, totalSleepTimeMs, sleepCycles);
