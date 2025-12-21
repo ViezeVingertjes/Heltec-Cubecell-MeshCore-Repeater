@@ -2,12 +2,14 @@
 #include "../core/Logger.h"
 #include "../core/PacketValidator.h"
 #include "../mesh/PacketDispatcher.h"
+#include "LoRaTransmitter.h"
 
 // Radio events struct shared between receiver and transmitter
 RadioEvents_t radioEvents;
 
-// Packet counter
+// Packet counter and airtime tracking
 uint32_t LoRaReceiver::packetCount = 0;
+uint32_t LoRaReceiver::totalRxAirtimeMs = 0;
 
 LoRaReceiver &LoRaReceiver::getInstance() {
   static LoRaReceiver instance;
@@ -62,6 +64,10 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
                             int8_t snr) {
   LOG_INFO_FMT("RX: %d bytes, RSSI: %d dBm, SNR: %d dB", size,
                rssi, snr);  // Framework already provides SNR in dB
+
+  // Track RX airtime (estimate based on packet size)
+  uint32_t rxAirtime = LoRaTransmitter::estimateAirtime(size);
+  totalRxAirtimeMs += rxAirtime;
 
   // Validate raw packet before decoding
   auto validationResult = MeshCore::PacketValidator::validateRawPacket(payload, size);
@@ -118,4 +124,10 @@ void LoRaReceiver::onRxError() {
 void LoRaReceiver::resetPacketCount() {
   packetCount = 0;
   LOG_INFO("Packet count reset");
+}
+
+void LoRaReceiver::resetStats() {
+  packetCount = 0;
+  totalRxAirtimeMs = 0;
+  LOG_INFO("RX statistics reset");
 }

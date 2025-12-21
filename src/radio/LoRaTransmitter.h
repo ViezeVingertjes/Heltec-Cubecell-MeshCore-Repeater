@@ -17,6 +17,7 @@ public:
   uint32_t getTransmitCount() const { return transmitCount; }
   uint32_t getFailureCount() const { return failureCount; }
   uint32_t getTotalAirtimeMs() const { return totalAirtimeMs; }
+  void resetStats();
 
   static uint32_t estimateAirtime(uint16_t packetLength);
   

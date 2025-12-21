@@ -15,7 +15,9 @@ public:
   MeshCore::PacketQueue &getQueue() { return packetQueue; }
   
   static uint32_t getPacketCount() { return packetCount; }
+  static uint32_t getTotalRxAirtimeMs() { return totalRxAirtimeMs; }
   static void resetPacketCount();
+  static void resetStats();
 
 private:
   LoRaReceiver() = default;
@@ -27,6 +29,7 @@ private:
 
   MeshCore::PacketQueue packetQueue;
   static uint32_t packetCount;
+  static uint32_t totalRxAirtimeMs;
 
   LoRaReceiver(const LoRaReceiver &) = delete;
   LoRaReceiver &operator=(const LoRaReceiver &) = delete;

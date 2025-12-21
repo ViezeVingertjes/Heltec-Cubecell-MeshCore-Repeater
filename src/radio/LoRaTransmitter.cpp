@@ -105,3 +105,10 @@ uint32_t LoRaTransmitter::estimateAirtime(uint16_t packetLength) {
   
   return totalTime;
 }
+
+void LoRaTransmitter::resetStats() {
+  transmitCount = 0;
+  failureCount = 0;
+  totalAirtimeMs = 0;
+  LOG_INFO("TX statistics reset");
+}

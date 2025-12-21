@@ -10,8 +10,8 @@
 #include "mesh/processors/Deduplicator.h"
 #include "mesh/processors/PacketForwarder.h"
 #include "mesh/processors/PacketLogger.h"
-#include "mesh/processors/StatusResponder.h"
-#include "mesh/processors/AdvertResponder.h"
+#include "mesh/processors/CommandHandler.h"
+#include "mesh/processors/NeighborMonitor.h"
 #include "mesh/processors/TraceHandler.h"
 #include "mesh/processors/DiscoveryResponder.h"
 #include "power/PowerManager.h"
@@ -22,8 +22,8 @@ static MeshCore::Deduplicator deduplicator;
 static MeshCore::PacketLogger packetLogger;
 static MeshCore::TraceHandler traceHandler;
 static MeshCore::PacketForwarder packetForwarder;
-static StatusResponder statusResponder;
-static AdvertResponder advertResponder;
+static CommandHandler commandHandler;
+static NeighborMonitor neighborMonitor;
 static MeshCore::DiscoveryResponder discoveryResponder;
 
 void setup() {
@@ -46,8 +46,8 @@ void setup() {
       MeshCore::PacketDispatcher::getInstance();
   dispatcher.addProcessor(&deduplicator);
   dispatcher.addProcessor(&packetLogger);
-  dispatcher.addProcessor(&statusResponder);
-  dispatcher.addProcessor(&advertResponder);
+  dispatcher.addProcessor(&commandHandler);
+  dispatcher.addProcessor(&neighborMonitor);
   dispatcher.addProcessor(&discoveryResponder);
 
   if (Config::Forwarding::ENABLED) {
@@ -90,11 +90,8 @@ void loop() {
     packetForwarder.loop();
   }
 
-  // Status responder (only process if has pending response)
-  statusResponder.loop();
-  
-  // Advert responder (only process if has pending response)
-  advertResponder.loop();
+  // Command handler (only process if has pending response)
+  commandHandler.loop();
   
   // Discovery responder (only process if has pending response)
   discoveryResponder.loop();
@@ -103,8 +100,7 @@ void loop() {
   if (Config::Power::LIGHT_SLEEP_ENABLED) {
     bool hasPendingWork = (Config::Forwarding::ENABLED && 
                            packetForwarder.hasPendingPackets()) ||
-                          statusResponder.hasPendingResponse() ||
-                          advertResponder.hasPendingResponse() ||
+                          commandHandler.hasPendingResponse() ||
                           discoveryResponder.hasPendingResponse();
     if (!hasPendingWork) {
       PowerManager::getInstance().sleep();
