@@ -47,7 +47,7 @@ void LoRaReceiver::initialize() {
                     Config::LoRa::IQ_INVERSION, Config::LoRa::TX_TIMEOUT_MS);
 
   LOG_INFO("Starting continuous reception with RX boost");
-  Radio.RxBoosted(0);  // Use boosted LNA gain for ~3dB better sensitivity
+  Radio.Rx(0);  // Use boosted LNA gain for ~3dB better sensitivity
 }
 
 void LoRaReceiver::processQueue() {
@@ -74,7 +74,7 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
   if (validationResult.isError()) {
     LOG_WARN_FMT("Invalid raw packet: %s", 
                  MeshCore::errorCodeToString(validationResult.error));
-    Radio.RxBoosted(0);
+    Radio.Rx(0);
     return;
   }
 
@@ -95,7 +95,7 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
     if (packetValidation.isError()) {
       LOG_WARN_FMT("Decoded packet validation failed: %s",
                    MeshCore::errorCodeToString(packetValidation.error));
-      Radio.RxBoosted(0);
+      Radio.Rx(0);
       return;
     }
 
@@ -108,17 +108,17 @@ void LoRaReceiver::onRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
     LOG_WARN("Failed to decode packet");
   }
 
-  Radio.RxBoosted(0);
+  Radio.Rx(0);
 }
 
 void LoRaReceiver::onRxTimeout() {
   LOG_DEBUG("RX timeout, restarting reception");
-  Radio.RxBoosted(0);
+  Radio.Rx(0);
 }
 
 void LoRaReceiver::onRxError() {
   LOG_WARN("RX error occurred, restarting reception");
-  Radio.RxBoosted(0);
+  Radio.Rx(0);
 }
 
 void LoRaReceiver::resetPacketCount() {
