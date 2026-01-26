@@ -25,14 +25,14 @@ void LoRaTransmitter::onTxDone() {
   LoRaTransmitter &tx = getInstance();
   tx.notifyTxComplete(true);
   LOG_DEBUG("TX complete, returning to RX");
-  Radio.RxBoosted(0);  // Return to boosted RX mode
+  Radio.Rx(0);  // Return to boosted RX mode
 }
 
 void LoRaTransmitter::onTxTimeout() {
   LoRaTransmitter &tx = getInstance();
   tx.notifyTxComplete(false);
   LOG_WARN("TX timeout, returning to RX");
-  Radio.RxBoosted(0);  // Return to boosted RX mode
+  Radio.Rx(0);  // Return to boosted RX mode
 }
 
 bool LoRaTransmitter::transmit(const uint8_t *data, uint16_t length) {
