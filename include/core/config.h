@@ -7,8 +7,8 @@
 namespace MiniCore::Config {
 using namespace Constants;
 
-constexpr uint32_t RADIO_FREQUENCY_HZ = 869431000;
-constexpr uint8_t RADIO_SPREADING_FACTOR = 7;
+constexpr uint32_t RADIO_FREQUENCY_HZ = 869618000;  /* 869.618 MHz */
+constexpr uint8_t RADIO_SPREADING_FACTOR = 8;       /* SF8; BW 62.5 from meshCoreDefaults() */
 constexpr uint8_t RADIO_CODING_RATE = 5;
 constexpr uint8_t RADIO_PREAMBLE_LENGTH = 16;
 constexpr int8_t RADIO_TX_POWER_DBM = 22;
