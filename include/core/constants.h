@@ -24,6 +24,10 @@ constexpr size_t MAX_ADVERT_DATA_SIZE = 32;
 constexpr size_t SIGNATURE_SIZE = 64;
 constexpr size_t ADVERT_STATE_STORAGE_SIZE = 4;
 
+/** Storage for path.hash.mode (MeshCore compatible: 0, 1, or 2). */
+constexpr size_t PATH_HASH_MODE_STORAGE_SIZE = 1;
+constexpr uint8_t PATH_HASH_MODE_MAX = 2;
+
 constexpr size_t SEED_SIZE = 32;
 constexpr size_t PUB_KEY_SIZE = 32;
 constexpr size_t PRV_KEY_SIZE = 64;

@@ -272,6 +272,10 @@ void Application::init() {
             logInfo("Advert: last=%lu\r\n", static_cast<unsigned long>(advertScheduler_.lastAdvertTime()));
         }
     }
+    auto pathHashLoad = pathHashMode_.load(device_.storage(), Config::PATH_HASH_MODE_STORAGE_OFFSET);
+    if (!pathHashLoad.isOk()) {
+        logError("[E] path.hash.mode load: %d\r\n", static_cast<int>(pathHashLoad.error()));
+    }
     packetRouter_ = std::make_unique<PacketRouter>(repeater_);
     packetRouter_->setSelfHash(selfHash_);
     packetRouter_->setEventHandler(routerHandler_);

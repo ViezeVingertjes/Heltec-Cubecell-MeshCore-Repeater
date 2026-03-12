@@ -454,6 +454,18 @@ void test_margin_for_bandwidth_medium_returns_default_margin();
 void test_margin_for_bandwidth_wide_returns_larger_margin();
 void test_noise_floor_config_for_bandwidth();
 void test_noise_floor_estimator_with_bandwidth_config();
+
+void test_path_hash_mode_default_is_max();
+void test_path_hash_mode_get_returns_stored_value();
+void test_path_hash_mode_set_accepts_0_1_2();
+void test_path_hash_mode_set_rejects_3();
+void test_path_hash_mode_set_rejects_larger_values();
+void test_path_hash_mode_load_from_storage();
+void test_path_hash_mode_load_constrains_invalid_stored_value();
+void test_path_hash_mode_load_empty_storage_uses_default();
+void test_path_hash_mode_save_persists_value();
+void test_path_hash_mode_save_then_load_roundtrip();
+
 int main() {
     UNITY_BEGIN();
 
@@ -920,5 +932,17 @@ int main() {
     RUN_TEST(test_margin_for_bandwidth_wide_returns_larger_margin);
     RUN_TEST(test_noise_floor_config_for_bandwidth);
     RUN_TEST(test_noise_floor_estimator_with_bandwidth_config);
-        return UNITY_END();
+
+    RUN_TEST(test_path_hash_mode_default_is_max);
+    RUN_TEST(test_path_hash_mode_get_returns_stored_value);
+    RUN_TEST(test_path_hash_mode_set_accepts_0_1_2);
+    RUN_TEST(test_path_hash_mode_set_rejects_3);
+    RUN_TEST(test_path_hash_mode_set_rejects_larger_values);
+    RUN_TEST(test_path_hash_mode_load_from_storage);
+    RUN_TEST(test_path_hash_mode_load_constrains_invalid_stored_value);
+    RUN_TEST(test_path_hash_mode_load_empty_storage_uses_default);
+    RUN_TEST(test_path_hash_mode_save_persists_value);
+    RUN_TEST(test_path_hash_mode_save_then_load_roundtrip);
+
+    return UNITY_END();
 }

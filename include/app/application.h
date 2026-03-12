@@ -10,6 +10,7 @@
 #include "advert/advert.h"
 #include "hal/i_device.h"
 #include "hal/i_radio.h"
+#include "prefs/path_hash_mode.h"
 #include "routing/packet_router.h"
 #include "radio/radio_controller.h"
 namespace MiniCore {
@@ -28,6 +29,7 @@ struct ApplicationContext {
     bool hasIdentity;
     uint8_t selfHash;
     const LocalIdentity& localIdentity;
+    PathHashMode& pathHashMode;
 };
 class Application {
 public:
@@ -47,7 +49,8 @@ public:
             csRetryCount_,
             hasIdentity_,
             selfHash_,
-            localIdentity_
+            localIdentity_,
+            pathHashMode_
         };
     }
     void setTxHandlerPendingEntry(TxEntry* entry);
@@ -68,6 +71,7 @@ private:
     TxQueue txQueue_;
     AdvertScheduler advertScheduler_;
     TimeSynchronizer timeSync_;
+    PathHashMode pathHashMode_;
     char nodeName_[Config::NODE_NAME_BUF_SIZE]{0};
     uint8_t csRetryCount_{0};
     std::unique_ptr<Ed25519Crypto> crypto_;

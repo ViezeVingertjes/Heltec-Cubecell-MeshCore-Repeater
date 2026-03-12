@@ -52,4 +52,13 @@ constexpr uint32_t NOISE_FLOOR_SAMPLE_INTERVAL_MS = 500;
 constexpr uint32_t NOISE_FLOOR_LOG_INTERVAL_MS = 60000;
 constexpr uint32_t ADVERT_ENQUEUE_DELAY_MAX_MS = 1000;
 constexpr uint32_t ADVERT_INTERVAL_HOURS = 12;
+
+/** Default path hash mode = PATH_HASH_MODE_MAX (1 byte stored). Matches MeshCore path.hash.mode. */
+constexpr uint8_t DEFAULT_PATH_HASH_MODE = PATH_HASH_MODE_MAX;
+
+/** Flash offset for path hash mode (after identity + advert state). */
+constexpr size_t PATH_HASH_MODE_STORAGE_OFFSET =
+    IDENTITY_STORAGE_SIZE + ADVERT_STATE_STORAGE_SIZE;
+constexpr size_t TOTAL_STORAGE_SIZE =
+    PATH_HASH_MODE_STORAGE_OFFSET + PATH_HASH_MODE_STORAGE_SIZE;
 }

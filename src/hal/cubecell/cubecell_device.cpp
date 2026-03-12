@@ -37,7 +37,7 @@ Status CubeCellDevice::init() {
     digitalWrite(Vext, LOW);
         pinMode(USER_KEY, INPUT);
         innerWdtEnable(true);
-        size_t storageSize = Config::IDENTITY_STORAGE_SIZE + Config::ADVERT_STATE_STORAGE_SIZE;
+        size_t storageSize = Config::TOTAL_STORAGE_SIZE;
     auto storageResult = storage_.init(storageSize);
     if (!storageResult.isOk()) {
         return storageResult;
@@ -52,8 +52,8 @@ void CubeCellDevice::idle() {
     __WFI();
 }
 Status CubeCellDevice::factoryReset() {
-    size_t storageSize = Config::IDENTITY_STORAGE_SIZE + Config::ADVERT_STATE_STORAGE_SIZE;
-    uint8_t emptyData[Config::IDENTITY_STORAGE_SIZE + Config::ADVERT_STATE_STORAGE_SIZE];
+    size_t storageSize = Config::TOTAL_STORAGE_SIZE;
+    uint8_t emptyData[Config::TOTAL_STORAGE_SIZE];
     memset(emptyData, 0xFF, sizeof(emptyData));
     auto writeResult = storage_.writeBlock(0, emptyData, storageSize);
     if (!writeResult.isOk()) {
