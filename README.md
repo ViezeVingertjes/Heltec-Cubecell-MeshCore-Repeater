@@ -1,167 +1,160 @@
-# Heltec CubeCell MeshCore Repeater
+# MiniCore
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)]()
-[![Platform](https://img.shields.io/badge/platform-Heltec%20CubeCell-green.svg)](https://heltec.org/project/htcc-ab01/)
+Minimal MeshCore-compatible firmware foundation for Heltec CubeCell (HTCC-AB01) using PlatformIO. Built with TDD principles for full test coverage.
 
-Production-ready LoRa mesh network repeater firmware for Heltec CubeCell devices. Forwards packets intelligently with SNR-based collision avoidance, supports multiple encrypted channels, and responds to network queries.
+**Requirements:** [PlatformIO](https://platformio.org/) (e.g. `pip install platformio`), Python 3.x. For on-device build and flash: Heltec CubeCell board and toolchain.
 
-## Features
+## Architecture
 
-- **Complete Routing Support** - Full MeshCore protocol compatibility:
-  - FLOOD routing with SNR-based adaptive delays (better signal = forward first)
-  - DIRECT routing for point-to-point communication paths
-  - Transport code support for network segmentation/bridging
-- **Multi-Channel Support** - Monitor public channel + up to 8 private encrypted channels (AES-128)
-- **Network Discovery** - Respond to discovery requests for network topology mapping
-- **Network Commands** - Respond to `!status` (uptime/stats) and `!advert` (node announcement) on any channel
-- **Path Tracing** - Handle TRACE packets for network diagnostics with SNR recording
-- **All Payload Types** - Forward all MeshCore packet types (REQ, RESPONSE, ACK, PATH, MULTIPART, etc.)
-- **Deduplication & Loop Prevention** - Hash-based packet cache prevents duplicates and routing loops
-- **Power Optimized** - Light sleep mode between operations extends battery life
-- **Debug Mode** - Optional serial logging for development and troubleshooting
-
-## Hardware
-
-- **Device**: Heltec CubeCell HTCC-AB02A
-- **Radio**: Built-in SX1262 LoRa
-- **Power**: 3.7V LiPo battery (optional)
-
-See [docs/HARDWARE_HTCC-AB02A.md](docs/HARDWARE_HTCC-AB02A.md) for detailed specifications.
-
-## Quick Start
-
-### Prerequisites
-
-- [PlatformIO](https://platformio.org/)
-- USB cable for programming
-- Compatible MeshCore network
-
-### Installation
-
-```bash
-git clone https://github.com/yourusername/Heltec-Cubcell-MeshCore-Repeater.git
-cd Heltec-Cubcell-MeshCore-Repeater
-
-# Production build (optimized, no logging)
-pio run -e cubecell_board --target upload
-
-# Debug build (with serial logging)
-pio run -e cubecell_board_debug --target upload
-pio device monitor
+```
+MiniCore/
+├── include/                    # Public headers (module layout)
+│   ├── core/                   # config.h, constants.h, result.h, version.h, platform.h
+│   ├── packet/                 # packet.h, packet_history.h
+│   ├── routing/                # repeater.h, packet_router.h
+│   ├── radio/                  # radio_controller.h
+│   ├── crypto/                 # crypto_types.h, identity_manager.h, ed25519_crypto.h
+│   ├── app/                    # application.h, device_factory.h
+│   ├── time/                   # time_sync.h
+│   ├── power/                  # power_save.h
+│   ├── advert/                 # advert.h
+│   ├── discovery/              # discovery.h
+│   ├── queue/                  # tx_queue.h
+│   ├── util/                   # circular_buffer.h, noise_floor_estimator.h
+│   └── hal/                    # Hardware Abstraction Layer (i_board.h, i_crypto.h, ...)
+├── lib/
+│   ├── ed25519/                # Ed25519 library (MeshCore compatible; see lib/ed25519/license.txt)
+│   └── sha256/
+├── src/
+│   ├── main.cpp                # Application entry point
+│   ├── app/                    # application.cpp
+│   ├── packet/                 # packet.cpp, packet_history.cpp
+│   ├── routing/                # repeater.cpp, packet_router.cpp
+│   ├── radio/                  # radio_controller.cpp
+│   ├── crypto/                 # crypto_types.cpp, ed25519_crypto.cpp, identity_manager.cpp
+│   ├── time/                   # time_sync.cpp
+│   ├── power/                  # power_save.cpp
+│   ├── queue/                  # tx_queue.cpp
+│   ├── util/                   # noise_floor_estimator.cpp
+│   └── hal/cubecell/           # CubeCell HAL implementation
+├── test/
+│   ├── test_native/            # Host-based tests (fast TDD cycle)
+│   │   ├── mocks/              # Mock implementations for testing
+│   │   ├── core/, packet/, routing/, ...  # Test files by module
+│   │   └── test_main.cpp       # Test runner
+│   └── test_embedded/          # On-device tests (38 tests)
+├── scripts/                    # Build/test helpers (PowerShell, bash, optional strip_comments.py)
+└── platformio.ini              # Build configuration
 ```
 
-## Configuration
+## Versioning
 
-Edit `src/core/Config.h` to configure your repeater:
+Firmware version is defined in `include/core/version.h` as `FIRMWARE_VERSION` (major.minor.patch). We follow [semantic versioning](https://semver.org/): major for incompatible changes, minor for backward-compatible features, patch for backward-compatible fixes.
 
-### Essential Settings
+## Practices
 
-**LoRa Radio** - Must match your network and comply with local regulations:
-- `FREQUENCY` - Default 869.618 MHz (EU ISM band)
-- `SPREADING_FACTOR` - Default SF8
-- `TX_POWER` - Default 21 dBm
+| Practice | Implementation |
+|----------|----------------|
+| **TDD** | Tests written first; 445+ native test cases + 38 embedded tests |
+| **Clean Architecture** | HAL interfaces decouple hardware from logic |
+| **SOLID** | Single-responsibility interfaces, dependency injection ready |
+| **MeshCore Compatible** | Ed25519 keys, same storage format |
+| **No Exceptions** | `Result<T>` for error handling, `-fno-exceptions` flag |
+| **No RTTI** | Compile-time polymorphism, `-fno-rtti` flag |
+| **Testable** | All interfaces have mock implementations |
+| **Config vs constants** | Tunables in `include/core/config.h`; protocol/MeshCore constants in `include/core/constants.h` (do not change) |
+| **Application API** | Single `context()` returns `ApplicationContext` (device, txQueue, router, identity) for handlers; no per-getter API |
 
-**Node Identity**:
-- `NODE_NAME` - Node name prefix (e.g., "VieZe Rogue")
-- Custom node ID/hash (optional, defaults to hardware-generated)
+## Reusable Components
 
-**Private Channels** - Add your channel keys (hex format, 16 bytes):
+### Error Handling (`core/result.h`)
 ```cpp
-constexpr const char* PRIVATE_CHANNEL_KEYS[] = {
-  "b4a28381f505eb67e696ed3d2294c81f",
-  // Add more channels here
-};
+Result<int> readSensor() {
+    if (!initialized) return ErrorCode::NotInitialized;
+    return sensorValue;
+}
+
+auto result = readSensor();
+if (result.isOk()) {
+    process(result.value());
+} else {
+    handleError(result.error());
+}
 ```
 
-**Forwarding**:
-- `ENABLED` - Enable/disable packet forwarding
-- `MIN_RSSI_TO_FORWARD` - Minimum signal strength (-120 dBm default)
-- Delay parameters for collision avoidance tuning
+### Circular Buffer (`util/circular_buffer.h`)
+```cpp
+CircularBuffer<Packet, 16> rxQueue;
+rxQueue.push(packet);           // Returns Result<void>
+auto pkt = rxQueue.pop();       // Returns Result<Packet>
+```
 
-**Power Management**:
-- `LIGHT_SLEEP_ENABLED` - Enable light sleep mode (true recommended)
+### HAL Interfaces (`hal/`)
+```cpp
+class MyRadioHandler : public IRadioEvents {
+    void onRxDone(const RxPacket& pkt) override { /* handle */ }
+    void onTxDone() override { /* next action */ }
+};
 
-## Usage
+void sendPacket(IRadio& radio, const uint8_t* data, size_t len) {
+    radio.send(data, len);  // Works with real or mock radio
+}
+```
 
-### Network Commands
+### Mocks for Testing (`test/test_native/mocks/`)
+```cpp
+Mocks::MockStorage storage;
+storage.init(256);
+storage.write(0, 0x42);
+TEST_ASSERT_EQUAL(0x42, storage.read(0).value());
+```
 
-Send these commands on public or private channels to query nearby repeaters:
+### Identity Management (`crypto/identity_manager.h`)
+```cpp
+Ed25519Crypto crypto;
+IdentityManager manager(storage, rng, crypto, log);
 
-**`!status`** - Get node status
-- Response format: `NodeName XX: W:1h 5m S:23h 12m P:456`
-- Shows wake time, sleep time, and packet count
-- Rate limited to once per minute
+auto result = manager.loadOrCreate();
+if (result.isOk()) {
+    LocalIdentity& identity = result.value();
+}
+```
 
-**`!advert`** - Request node advertisement
-- Nodes respond with ADVERT packet containing node type and name
-- Useful for discovering nearby repeaters
-- Rate limited to once per minute
+## Commands
 
-### Monitoring (Debug Build)
-
-Connect serial monitor at 115200 baud to view:
-- Packet reception with RSSI/SNR
-- Forwarding decisions and delays
-- Processor pipeline execution
-- Network statistics
+PowerShell or bash:
 
 ```bash
-pio device monitor
+pio run                          # Build release firmware
+pio run -e cubecell_board_debug  # Build with debug symbols
+pio test -e native                # Run native host tests (~1 sec)
+pio test -e cubecell_board_test   # Run on-device tests (device required)
+pio run -t upload                 # Flash to device
 ```
 
-## How It Works
+Optional: `scripts/strip_comments.py` removes C/C++ comments and collapses blank lines (e.g. for size or diff checks). Run with Python 3: `python3 scripts/strip_comments.py < file.cpp`.
 
-**Intelligent Routing**: 
-- **FLOOD routing**: Nodes calculate forwarding delay based on signal quality (SNR). Better signal = shorter delay, so the best-positioned node forwards first. Others hear the transmission and cancel their pending forward, avoiding collisions.
-- **DIRECT routing**: Packets follow a specified path hop-by-hop. Each node checks if it's the next hop, removes itself from the path, and forwards with minimal delay for fast delivery.
-- **Transport codes**: Preserved during forwarding to enable network segmentation and bridging.
+## Build Environments
 
-**Processing Pipeline**: Packets flow through priority-ordered processors:
-1. Deduplicator (priority 10) - Filter duplicates
-2. PacketForwarder (20) - Forward FLOOD/DIRECT packets with adaptive delays
-3. TraceHandler (30) - Handle TRACE packets for path diagnostics
-4. StatusResponder (35) - Process `!status` commands
-5. AdvertResponder (35) - Process `!advert` commands
-6. DiscoveryResponder (36) - Respond to network discovery requests
-7. PacketLogger (99) - Debug logging
+| Environment | Purpose |
+|-------------|---------|
+| `cubecell_board` | Production (release build, NDEBUG) |
+| `cubecell_board_debug` | Development with debug symbols (DEBUG_BUILD) |
+| `cubecell_board_test` | On-device unit tests |
+| `native` | Fast TDD on host PC |
+| `native_coverage` | Native tests with gcov/lcov coverage |
 
-**Security**: Ed25519 identity generated on first boot from entropy (ADC + timing jitter). Private channels use AES-128 encryption. Keys stored in plaintext EEPROM.
+Use `cubecell_board` for production deployment; use `cubecell_board_debug` for development and debugging.
 
-**Power Management**: MCU sleeps when idle, wakes on radio interrupt. No packets missed.
+## Adding New Features
 
-## Protocol Support
+1. Define interface in `include/hal/i_*.h`
+2. Create mock in `test/test_native/mocks/`
+3. Write tests (add declaration and `RUN_TEST` in `test/test_native/test_main.cpp` and implement in `test/test_native/<module>/test_*.cpp`)
+4. Run tests: `pio test -e native`
+5. Implement for CubeCell in `src/`
+6. Verify on device: `pio test -e cubecell_board_test`
 
-- **Routing**: Full support for all MeshCore V1 routing modes
-  - FLOOD - Multi-hop broadcast with path building
-  - DIRECT - Point-to-point along specified path
-  - TRANSPORT_FLOOD - Flood with transport codes for segmentation
-  - TRANSPORT_DIRECT - Direct with transport codes
-- **Payloads**: All 13 MeshCore V1 payload types
-  - REQ, RESPONSE, TXT_MSG, ACK, ADVERT, GRP_TXT, GRP_DATA
-  - ANON_REQ, PATH, TRACE, MULTIPART, CONTROL, RAW_CUSTOM
-- **Channels**: 1 public + up to 8 private encrypted channels (AES-128)
+## Adding a New Device
 
-## Troubleshooting
-
-**No packets received**: Check LoRa frequency/SF match your network. Verify antenna connection.
-
-**Not forwarding**: Ensure `Forwarding::ENABLED = true` in Config.h. Check `MIN_RSSI_TO_FORWARD` threshold.
-
-**High power consumption**: Use production build (not debug). Enable light sleep mode.
-
-For issues, see [GitHub Issues](https://github.com/yourusername/Heltec-Cubcell-MeshCore-Repeater/issues).
-
-## Regulatory & Security
-
-**Radio Compliance**: You are responsible for complying with local radio regulations. Default is 869.618 MHz @ 21 dBm (EU ISM band). Duty cycle enforcement is NOT implemented - manual compliance required (EU: ≤1% on 868 MHz).
-
-**Cryptographic Keys**: Keys generated from limited entropy sources (suitable for device ID, not high-security). Physical access to device allows key extraction (EEPROM storage).
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file.
-
-## Acknowledgments
-
-Built for [Heltec CubeCell HTCC-AB02A](https://docs.heltec.cn/en/node/asr650x/htcc_ab02a/). Compatible with MeshCore protocol.
+See `src/hal/template/DEVICE_TEMPLATE.md` for step-by-step instructions and `platformio.ini` (template comment at bottom) for the new env template.

@@ -1,0 +1,5 @@
+{
+    "name": "SHA256",
+    "version": "1.0.0",
+    "description": "Simple SHA256 implementation for embedded systems"
+}

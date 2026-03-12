@@ -1,109 +1,34 @@
-// System/library includes first
+#include "app/device_factory.h"
+#include "app/application.h"
+#ifdef __asr650x__
 #include <Arduino.h>
-
-// Project includes
-#include "core/Config.h"
-#include "core/CryptoIdentity.h"
-#include "core/Logger.h"
-#include "core/NodeConfig.h"
-#include "mesh/channels/PrivateChannelAnnouncer.h"
-#include "mesh/processors/Deduplicator.h"
-#include "mesh/processors/PacketForwarder.h"
-#include "mesh/processors/PacketLogger.h"
-#include "mesh/processors/CommandHandler.h"
-#include "mesh/processors/NeighborMonitor.h"
-#include "mesh/processors/TraceHandler.h"
-#include "mesh/processors/DiscoveryResponder.h"
-#include "power/PowerManager.h"
-#include "radio/LoRaReceiver.h"
-#include "radio/LoRaTransmitter.h"
-
-static MeshCore::Deduplicator deduplicator;
-static MeshCore::PacketLogger packetLogger;
-static MeshCore::TraceHandler traceHandler;
-static MeshCore::PacketForwarder packetForwarder;
-static CommandHandler commandHandler;
-static NeighborMonitor neighborMonitor;
-static MeshCore::DiscoveryResponder discoveryResponder;
-
+#endif
+namespace {
+    MiniCore::Application* g_app = nullptr;
+}
 void setup() {
-#ifdef ENABLE_LOGGING
-  logger.begin();
-  logger.setLevel(LogLevel::DEBUG);
+#ifdef __asr650x__
+    Serial.begin(115200);
+    delay(200);
+    Serial.println("[boot] setup start");
+#endif
+    MiniCore::IDevice& device = MiniCore::createDevice();
+#ifdef __asr650x__
+    Serial.println("[boot] device created");
 #endif
 
-  LOG_INFO("=== CubeCell MeshCore Starting ===");
-  LOG_INFO_FMT("Firmware: v%s (built %s)", FIRMWARE_VERSION, FIRMWARE_BUILD_DATE);
-
-  CryptoIdentity::getInstance().initialize();
-  PrivateChannelAnnouncer::getInstance().initialize();
-
-  PowerManager::getInstance().initialize();
-
-  MeshCore::NodeConfig::getInstance().initialize();
-
-  MeshCore::PacketDispatcher &dispatcher =
-      MeshCore::PacketDispatcher::getInstance();
-  dispatcher.addProcessor(&deduplicator);
-  dispatcher.addProcessor(&packetLogger);
-  dispatcher.addProcessor(&commandHandler);
-  dispatcher.addProcessor(&neighborMonitor);
-  dispatcher.addProcessor(&discoveryResponder);
-
-  if (Config::Forwarding::ENABLED) {
-    dispatcher.addProcessor(&traceHandler);
-    dispatcher.addProcessor(&packetForwarder);
-
-    uint16_t nodeId = MeshCore::NodeConfig::getInstance().getNodeId();
-    uint8_t nodeHash = MeshCore::NodeConfig::getInstance().getNodeHash();
-    LOG_INFO_FMT("Forwarding ENABLED - Node ID: 0x%04X, Hash: 0x%02X", nodeId,
-                 nodeHash);
-    LOG_INFO_FMT("RX Delay: %.2f, TX Delay: %.2f",
-                 Config::Forwarding::RX_DELAY_BASE,
-                 Config::Forwarding::TX_DELAY_FACTOR);
-  } else {
-    LOG_INFO("Forwarding DISABLED");
-  }
-
-  LOG_INFO_FMT("Registered %d packet processors",
-               dispatcher.getProcessorCount());
-
-  LoRaReceiver &receiver = LoRaReceiver::getInstance();
-  receiver.initialize();
-  LOG_INFO("LoRa receiver initialized");
-
-  LoRaTransmitter &transmitter = LoRaTransmitter::getInstance();
-  transmitter.initialize();
-  transmitter.registerTxCallbacks();
-  LOG_INFO("LoRa transmitter initialized");
-
-  LOG_INFO("Setup complete");
+    static MiniCore::Application app(device);
+    g_app = &app;
+#ifdef __asr650x__
+    Serial.println("[boot] application constructed");
+#endif
+    g_app->init();
+#ifdef __asr650x__
+    Serial.println("[boot] init done");
+#endif
 }
-
 void loop() {
-  // Critical path - always execute
-  Radio.IrqProcess();
-  LoRaReceiver::getInstance().processQueue();
-
-  // Forwarding (if enabled)
-  if (Config::Forwarding::ENABLED) {
-    packetForwarder.loop();
-  }
-
-  // Command handler (only process if has pending response)
-  commandHandler.loop();
-  
-  // Discovery responder (only process if has pending response)
-  discoveryResponder.loop();
-
-  // Power management - sleep when possible
-  if (Config::Power::LIGHT_SLEEP_ENABLED) {
-    bool hasPendingWork = (Config::Forwarding::ENABLED && 
-                           packetForwarder.hasPendingPackets()) ||
-                          commandHandler.hasPendingResponse() ||
-                          discoveryResponder.hasPendingResponse();
-    if (!hasPendingWork) {
-      PowerManager::getInstance().sleep();
+    if (g_app != nullptr) {
+        g_app->loop();
     }
-  }
 }

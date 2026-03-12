@@ -1,0 +1,16 @@
+{
+    "name": "ed25519",
+    "version": "1.0.0",
+    "description": "Ed25519 keypair and signing - minimal build",
+    "license": "Public Domain",
+    "build": {
+        "srcFilter": [
+            "+<keypair.c>",
+            "+<sign.c>",
+            "+<sha512.c>",
+            "+<ge.c>",
+            "+<fe.c>",
+            "+<sc.c>"
+        ]
+    }
+}
